@@ -1,0 +1,47 @@
+<?php
+/**
+ * WebProduction Shop (wpshop)
+ * @copyright (C) 2011-2014 WebProduction (tm) <webproduction.ua>
+ *
+ * This program is commercial software; you cannot redistribute it and/or
+ * modify.
+ */
+
+/**
+ * @author Maxim Miroshnichenko <max@webproduction.ua>
+ * @copyright WebProduction
+ * @package Shop
+ */
+class Datasource_EventIgnore extends Forms_ADataSourceSQLObject {
+
+    public function getSQLObject() {
+        $x = new XShopEventIgnore();
+        $x->setOrder('address', 'ASC');
+        return $x;
+    }
+
+    protected function _initialize() {
+        $field = new Forms_ContentFieldControlLink('id', 'ignore-control', 'id');
+        $field->setEditable(false);
+        $field->setName('#');
+        $this->addField($field);
+
+        $field = new Forms_ContentFieldControlLink('address', 'ignore-control', 'id');
+        $field->setName('Адрес');
+        $field->addValidator(new Forms_ValidatorEmpty());
+        $this->addField($field);
+
+        $field = new Forms_ContentFieldCheckbox('spam');
+        $field->setName('Это спам');
+        $this->addField($field);
+
+        $field = new Forms_ContentFieldCheckbox('notify');
+        $field->setName('Ошибочный контакт');
+        $this->addField($field);
+
+        $field = new Forms_ContentFieldCheckbox('unknown');
+        $field->setName('Неизвестный контакт');
+        $this->addField($field);
+    }
+
+}

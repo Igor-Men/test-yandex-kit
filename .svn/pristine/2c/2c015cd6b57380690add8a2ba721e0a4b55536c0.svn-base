@@ -1,0 +1,32 @@
+<?php
+include_once(dirname(__FILE__).'/api/include.php');
+
+// contents
+$fileContents = file_get_contents(dirname(__FILE__).'/contents.xml');
+Engine::GetContentDataSource()->registerContentsFromXML($fileContents, dirname(__FILE__).'/contents/');
+
+// JS
+PackageLoader::Get()->registerJSFile('/modules/quiz/_js/shop.quiz.js');
+
+// ACL
+// добавляем его только в режиме development
+if (PackageLoader::Get()->getMode('development')) {
+    Shop::Get()->getUserService()->addACLPermission('quiz', 'Опросы');
+}
+
+// регистрация block-ов в таблице блоков
+if (PackageLoader::Get()->getMode('development')) {
+    Shop::Get()->getBlockService()->addBlock('quiz', 'block-quiz');
+}
+
+// добавляем пункты меню
+try {
+
+    // добавляем таб к  продукту
+    Shop_ModuleLoader::Get()->registerSettingMenuItem(
+        'Опросы',
+        '/admin/shop/quiz/'
+    );
+} catch (Exception $e) {
+
+}

@@ -1,0 +1,9 @@
+<div class="shop-tabs fixed">
+    <a href="/admin/shop/products/">&lsaquo; {|$translate_many_products|}</a>
+    <a href="/admin/shop/products/filters/" class="selected">{|$translate_products_filters|}</a>
+    <a href="./add/">{|$translate_products_filters_add|}</a>
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+
+{|$table|}

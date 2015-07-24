@@ -1,0 +1,92 @@
+<div class="shop-popup-block js-voip-call" style="display: none;">
+    <div class="dark"></div>
+    <div class="popupblock">
+        <a href="#" class="close" onclick="box_voip_call_close('{|$callID|}');"></a>
+        <div class="head">
+            <span>{|if $direction == 'in'|}Входящий звонок{|else|}Исходящий звонок{|/if|}</span>
+        </div>
+        <div class="window-content window-form incoming-call">
+
+            {|*|}
+                <input type="button" value="&#128222; Принять звонок" />
+                <input type="button" value="&#9742; Положить трубку" />
+                <input type="button" value="&rarr; Перевести звонок" />
+            {|*|}
+
+            <br />
+            <br />
+
+            {|* блок комментария к звонку - он отдельный *|}
+            <textarea name="callcomment" id="js-call-comment" placeholder="Комментарий к звонку" style="height: 50px;"></textarea>
+
+            <div class="js-call-comment-result" style="color: green;"></div>
+
+            <input type="button" class="ob-button button-green" value="Сохранить комментарий" onclick="box_voip_call_comment('{|$callID|}', $j('#js-call-comment').val());" />
+
+            <script type="text/javascript">
+            function call_comment_autosave() {
+                box_voip_call_comment('{|$callID|}', $j('#js-call-comment').val());
+
+                setTimeout(call_comment_autosave, 5000);
+            }
+
+            setTimeout(call_comment_autosave, 5000);
+            </script>
+
+            {|* конец блока комментария к звонку *|}
+
+            <br />
+            <br />
+
+            <div class="js-call-contact-block">
+                {|if $block_contact|}
+                    {|* блок информации о контакте *|}
+
+                    {|$block_contact|}
+                {|else|}
+                    {|* блок-форма создания контакта *|}
+
+                    <textarea class="js-call-phone" placeholder="Телефоны" style="height: 30px;">{|$phone|}</textarea>
+                    <br />
+
+                    <input type="text" class="js-call-namefirst" value="" placeholder="Имя" />
+                    <input type="text" class="js-call-namelast" value="" placeholder="Фамилия" />
+                    <input type="text" class="js-call-namemiddle" value="" placeholder="Отчество" />
+                    <br />
+
+                    <select class="js-call-typesex">
+                        <option value="man">мужчина</option>
+                        <option value="woman">женщина</option>
+                    </select>
+
+                    <br />
+
+                    <input type="text" name="company" class="js-call-company" value="" placeholder="Компания" />
+                    <script type="text/javascript">
+                    company_autocomplete($j('.js-call-company'));
+                    </script>
+
+                    <input type="text" class="js-call-title" value="" placeholder="Должность" />
+
+                    <br />
+                    <input type="button" class="ob-button button-green" value="Создать контакт" onclick="box_voip_call_contact();" />
+
+                    <br />
+                    <br />
+                {|/if|}
+            </div>
+
+
+            <!--<audio autoplay="autoplay">
+                <source src="/_ring/default.wav" type="audio/wav">
+                <source src="/_ring/default.mp3" type="audio/mpeg">
+            </audio>-->
+
+            <!--<input type="button" class="ob-button" onclick="box_voip_call_close('{|$callID|}');" value="Закрыть" />-->
+        </div>
+    </div>
+</div>
+
+<script>
+    popupOpen('.js-voip-call');
+</script>

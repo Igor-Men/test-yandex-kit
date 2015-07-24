@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<engine>
+
+    <content id="shop-quiz">
+        <url>/quiz/</url>
+        <filehtml>shop_quiz.html</filehtml>
+        <filecss>shop_quiz.css</filecss>
+        <filephp>shop_quiz.php</filephp>
+    </content>
+
+    <content id="shop-quiz-ajax">
+        <url>/quiz/ajax/</url>
+        <filephp>shop_quiz_ajax.php</filephp>
+    </content>
+
+    <content id="shop-admin-quiz">
+        <url>/admin/shop/quiz/</url>
+        <filehtml>admin/quiz_index.html</filehtml>
+        <filephp>admin/quiz_index.php</filephp>
+        <moveto>shop-admin-tpl</moveto>
+        <moveas>content</moveas>
+        <level>2</level>
+        <role>quiz</role>
+    </content>
+
+    <content id="shop-admin-quiz-edit">
+        <url>/admin/shop/quiz/{id}/edit/</url>
+        <filehtml>admin/quiz_edit.html</filehtml>
+        <filephp>admin/quiz_edit.php</filephp>
+        <moveto>shop-admin-tpl</moveto>
+        <moveas>content</moveas>
+        <level>2</level>
+        <role>quiz</role>
+    </content>
+
+    <content id="shop-admin-quiz-delete">
+        <url>/admin/shop/quiz/{id}/delete/</url>
+        <filehtml>admin/quiz_delete.html</filehtml>
+        <filephp>admin/quiz_delete.php</filephp>
+        <moveto>shop-admin-tpl</moveto>
+        <moveas>content</moveas>
+        <level>2</level>
+        <role>quiz</role>
+    </content>
+
+    <content id="shop-admin-quiz-add">
+        <url>/admin/shop/quiz/add/</url>
+        <filehtml>admin/quiz_add.html</filehtml>
+        <filephp>admin/quiz_add.php</filephp>
+        <moveto>shop-admin-tpl</moveto>
+        <moveas>content</moveas>
+        <level>2</level>
+        <role>quiz</role>
+    </content>
+
+    <!-- специальный блок опросов -->
+    <content id="block-quiz">
+        <filehtml>block/block_quiz.html</filehtml>
+        <filephp>block/block_quiz.php</filephp>
+    </content>
+
+</engine>

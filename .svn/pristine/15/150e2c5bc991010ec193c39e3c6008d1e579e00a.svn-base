@@ -1,0 +1,9 @@
+<?php
+
+$a = array(
+'name' => 'Опросы',
+'url' => Engine::GetLinkMaker()->makeURLByContentID('shop-admin-quiz'),
+'acl' => 'quiz',
+'section' => 'modules',
+'childArray' => false
+);

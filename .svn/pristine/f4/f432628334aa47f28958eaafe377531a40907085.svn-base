@@ -1,0 +1,71 @@
+<?php
+/**
+ * WebProduction Shop (wpshop)
+ *
+ * @copyright (C) 2011-2015 WebProduction (tm) <webproduction.com.ua>
+ *
+ * This program is commercial software; you cannot redistribute it and/or
+ * modify.
+ */
+class Datasource_Workflow extends Forms_ADataSourceSQLObject {
+
+    public function getSQLObject() {
+        return Shop::Get()->getShopService()->getWorkflowsAll();
+    }
+
+    protected function _initialize() {
+        $isBox = Engine::Get()->getConfigFieldSecure('project-box');
+
+        $field = new Forms_ContentFieldInt('id');
+        $field->setEditable(false);
+        $field->setName('#');
+        $this->addField($field);
+
+        $field = new Forms_ContentField('name');
+        $field->setName(Shop::Get()->getTranslateService()->getTranslateSecure('translate_title'));
+        $this->addField($field);
+
+        $field = new Shop_ContentField_WorkflowAppointmanet('type');
+        $field->setName('Назначение');
+        $this->addField($field);
+
+        $field = new Shop_ContentField_WorkflowDefault('default');
+        $field->setName('');
+        $this->addField($field);
+
+        $field = new Shop_ContentField_WorkflowDirection('outcoming');
+        $field->setName('Направление');
+        $this->addField($field);
+
+        if ($isBox) {
+            $field = new Forms_ContentFieldSelectList('currencyid');
+            $field->setName(Shop::Get()->getTranslateService()->getTranslateSecure('translate_the_currency'));
+            $field->setDataSource(new Datasource_Currency());
+            $this->addField($field);
+
+            $field = new Forms_ContentField('productsDefault');
+            $field->setName('Продукты');
+            $this->addField($field);
+
+            $field = new Forms_ContentField('term');
+            $field->setName('Срок жизни');
+            $this->addField($field);
+
+            $field = new Forms_ContentField('keywords');
+            $field->setName('Ключевые слова');
+            $this->addField($field);
+
+            $field = new Forms_ContentField('issuename');
+            $field->setName('Шаблон имени');
+            $this->addField($field);
+
+            $field = new Shop_ContentFieldUserInfo('managerid');
+            $field->setName('Ответственный для старта новых задач');
+            $this->addField($field);
+
+            $field = new Forms_ContentFieldCheckbox('hidden');
+            $field->setName(Shop::Get()->getTranslateService()->getTranslateSecure('translate_hidden'));
+            $this->addField($field);
+        }
+    }
+}

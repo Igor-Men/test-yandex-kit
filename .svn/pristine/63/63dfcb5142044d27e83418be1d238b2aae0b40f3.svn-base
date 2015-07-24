@@ -1,0 +1,60 @@
+<div class="shop-tabs fixed">
+    <a href="/admin/shop/priceplaces/">&lsaquo; {|$translate_priceplaces|}</a>
+    <a href="" class="selected">{|$name|}</a>
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+
+<div class="shop-block">
+    {|$translate_priceplace_file_link|}:
+
+    <strong>{|$url|}</strong>
+    <br />
+
+    {|$translate_refresh_rate|}.
+</div>
+
+<br />
+
+{|$translate_priceplace_product_list|}:<br />
+<br />
+
+<table class="shop-table">
+    {|foreach from=$productsArray item="e"|}
+        <tr>
+            <td>{|$e.id|}</td>
+            <td>
+                {|if $e.image|}
+                    <img src="{|$e.image|}" width="100" />
+                {|else|}
+                    &nbsp;
+                {|/if|}
+            </td>
+            <td>
+                <a href="{|$e.url|}">{|$e.name|}</a>
+            </td>
+            <td>
+                {|$e.price|}
+                {|$e.currency|}
+            </td>
+        </tr>
+    {|/foreach|}
+</table>
+
+<br />
+<br />
+
+<div class="shop-block">
+    <form action="" method="post">
+        <strong>{|$translate_priceplace_product_add|}</strong>
+        {|$translate_priceplace_product_declare|}
+        <br />
+        <br />
+
+        <textarea name="codes" style="width: 99%; height: 50px;"></textarea>
+        <br />
+        <br />
+
+        <input type="submit" name="ok" value="{|$translate_add|}" class="ob-button button-green" />
+    </form>
+</div>

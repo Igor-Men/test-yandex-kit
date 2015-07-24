@@ -1,0 +1,46 @@
+{|if $question and ($answerArray or $resultsArray)|}
+    <div class="os-caption-block">{|$translate_quiz|}</div>
+    <div id="quiz" class="shop-block-quiz">
+        <div class="quiz-question-block">{|$question|}</div>
+        <input type="hidden" id="quiz-id" value="{|$quizid|}" />
+        <input type="hidden" id="quiz-type" value="{|$type|}" />
+
+        <div id="quiz-content" class="quiz-content-block">
+            <div id="quiz-answers" class="answer-block" {|if $answered|} style="display: none;" {|/if|}>
+                {|foreach from=$answerArray item="e" key="index"|}
+                    <label id="quiz-answers-inputs" class="item">
+                        {|if $type == "check"|}
+                            <input class="checker" name="answer[]" type="checkbox" value="{|$e.id|}" />
+                        {|else|}
+                            <input class="checker" name="answer" type="radio" value="{|$e.id|}" />
+                        {|/if|}
+                        <span class="answer-text">
+                            {|$e.answer|}
+                        </span>
+                        <span class="clear"></span>
+                    </label>
+                {|/foreach|}
+                <div class="button">
+                    <input class="os-submit" type="button" id="quiz-submit" value="{|$translate_vote|}" onclick="sendQuizAnswer(); return false;" />
+                </div>
+            </div>
+
+            {|if $resultsArray|}
+                <div id="quiz-results">
+                    {|foreach from=$resultsArray item="e" key="index"|}
+                        <div class="item-result">
+                            <div class="result">
+                                <span>{|$e.percent|}% &mdash; {|$e.amount|} {|$translate_voices|}</span>
+                                <div class="feel" style="width: {|$e.percent|}%;">&nbsp;</div>
+                            </div>
+                            <span class="result-answer-text">{|$e.answer|}</span>
+                        </div>
+                    {|/foreach|}
+                    <div class="button">
+                        <a href="#" id="quiz-reanswer" onclick="reAnswer(); return false;">{|$translate_discussed|}</a>
+                    </div>
+                </div>
+            {|/if|}
+        </div>
+    </div>
+{|/if|}

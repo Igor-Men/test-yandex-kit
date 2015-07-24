@@ -1,0 +1,6 @@
+$j(function () {
+    $j('input.js_option').click(function(){
+        $j($j(this).data('id')).toggle().find('input').val('0.00');
+    });
+
+});

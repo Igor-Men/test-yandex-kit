@@ -1,0 +1,68 @@
+<?php
+/**
+ * WebProduction Shop (wpshop)
+ * @copyright (C) 2011-2012 WebProduction (tm) <webproduction.com.ua>
+ *
+ * This program is commercial software; you cannot redistribute it and/or
+ * modify.
+ */
+
+class Quiz extends XQuiz {
+
+    public function __construct($id = 0) {
+        parent::__construct($id);
+        $this->setClassname(__CLASS__);
+    }
+
+    /**
+     * @return Quiz
+     */
+    public static function Get($key) {
+        return self::GetObject("Quiz", $key);
+    }
+
+    /**
+     * @return Quiz
+     */
+    public function getNext($exception = false) {
+        return parent::getNext($exception);
+    }
+
+    /**
+     * @return string
+     */
+    public function makeURLEdit() {
+        return Engine::GetLinkMaker()->makeURLByContentIDParam('shop-admin-quiz-edit', $this->getId(), 'id');
+    }
+
+    /**
+     * @return string
+     */
+    public function makeURLDelete() {
+        return Engine::GetLinkMaker()->makeURLByContentIDParam('shop-admin-quiz-delete', $this->getId(), 'id');
+    }
+
+    /**
+     * Get sdate
+     * @return string
+     */
+    public function getSdate(){
+        if (($date = parent::getSdate()) < $this->getCdate()) {
+            return $this->getCdate();
+        } else {
+            return $date;
+        }
+    }
+
+    /**
+     * Get edate
+     * @return string
+     */
+    public function getEdate(){
+        if (($date = parent::getEdate()) < $this->getCdate()) {
+            return $this->getCdate();
+        } else {
+            return $date;
+        }
+    }
+}

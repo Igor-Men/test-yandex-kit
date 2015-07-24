@@ -1,0 +1,6 @@
+<?php
+
+Engine::GetContentDataSource()->registerContent('shop-tpl', array(
+    'filecss' => dirname(__FILE__).'/contents/shop_tpl_brown_font.css',
+), 'extend');
+

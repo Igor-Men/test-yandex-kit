@@ -1,0 +1,15 @@
+<?php
+class quiz_index extends Engine_Class {
+
+    public function process() {
+        $table = new Shop_ContentTable(new Datasource_Quiz());
+
+        $field = new Forms_ContentFieldControlLink('question', 'shop-admin-quiz-edit', 'id');
+        $table->addField($field);
+
+        $table->getField('question')->setName('Вопрос');
+
+        $this->setValue('table', $table->render());
+    }
+
+}

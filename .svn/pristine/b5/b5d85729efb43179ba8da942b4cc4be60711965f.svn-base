@@ -1,0 +1,120 @@
+<?php
+/**
+ * Крон
+ *
+ * @author Maxim Miroshnichenko <max@webproduction.ua>
+ * @copyright WebProduction
+ * @package OneClick
+ */
+class Shop_CronHourDefault implements Events_IEventObserver {
+
+    public function notify(Events_Event $event) {
+        $event;
+
+        // экспорт на прайс-площадки
+        // @todo to module
+        PricePlaceService::Get()->processExports();
+
+        usleep(1000000 / rand(1, 1000)); // issue #63748 - smart timeout
+
+        // вытягивание картинок из tmpimageurl
+        Shop::Get()->getShopService()->importProductImageFromURLs();
+
+        usleep(1000000 / rand(1, 1000)); // issue #63748 - smart timeout
+
+        // пересчет hidden на основе времени жизни товаров
+        $this->_updateProductsLive();
+
+        usleep(1000000 / rand(1, 1000)); // issue #63748 - smart timeout
+
+        // автоматическое открытие или закрытие задач если статус closed 0/1
+        Shop::Get()->getShopService()->processStatusClosed();
+        Shop::Get()->getShopService()->processStatusOpened();
+
+        usleep(1000000 / rand(1, 1000)); // issue #63748 - smart timeout
+
+        // @todo to trigger-mail
+        try {
+            $users = Shop::Get()->getUserService()->getUsersAll();
+            $users->filterNotify_email_group(1);
+            while ($user = $users->getNext()) {
+                Shop::Get()->getShopService()->orderEmailNotificationGroup($user);
+            }
+        } catch (Exception $e) {
+            print $e;
+        }
+    }
+
+    /**
+     * Обновить у товара hidden=0/1 в зависимости от его времени жизни
+     *
+     * @todo to method
+     */
+    private function _updateProductsLive() {
+        try {
+            SQLObject::TransactionStart();
+
+            $dateNow = date('Y-m-d');
+
+            $products = Shop::Get()->getShopService()->getProductsAll();
+            $products->setHidden(0);
+            $products->setDeleted(0);
+            $products->addWhereQuery(
+                '(
+                (DATE(`datelifefrom`) > \''.$dateNow.'\' AND `datelifefrom` <> \'0000-00-00\')
+                OR
+                (DATE(`datelifeto`) < \''.$dateNow.'\' AND `datelifeto` <> \'0000-00-00\')
+                )'
+            );
+
+            while ($product = $products->getNext()) {
+                $product->setHidden(1);
+                $product->update();
+            }
+
+            $products = Shop::Get()->getShopService()->getProductsAll();
+            $products->setHidden(1);
+            $products->setDeleted(0);
+            $products->addWhereQuery('(DATE(`datelifefrom`) <= \''.$dateNow.'\' )');
+            $products->addWhereQuery('(DATE(`datelifeto`) >= \''.$dateNow.'\' )');
+            $products->addWhere('datelifefrom', '0000-00-00', '<>');
+            $products->addWhere('datelifeto', '0000-00-00', '<>');
+
+            while ($product = $products->getNext()) {
+                $product->setHidden(0);
+                $product->update();
+            }
+
+            $products = Shop::Get()->getShopService()->getProductsAll();
+            $products->setHidden(1);
+            $products->setDeleted(0);
+            $products->addWhereQuery('(DATE(`datelifefrom`) <= \''.$dateNow.'\' )');
+            $products->addWhere('datelifefrom', '0000-00-00', '<>');
+            $products->addWhere('datelifeto', '0000-00-00');
+
+            while ($product = $products->getNext()) {
+                $product->setHidden(0);
+                $product->update();
+            }
+
+            $products = Shop::Get()->getShopService()->getProductsAll();
+            $products->setHidden(1);
+            $products->setDeleted(0);
+            $products->addWhereQuery('(DATE(`datelifeto`) >= \''.$dateNow.'\' )');
+            $products->addWhere('datelifefrom', '0000-00-00');
+            $products->addWhere('datelifeto', '0000-00-00', '<>');
+
+            while ($product = $products->getNext()) {
+                $product->setHidden(0);
+                $product->update();
+            }
+
+            SQLObject::TransactionCommit();
+        } catch (Exception $ge) {
+            SQLObject::TransactionRollback();
+            throw $ge;
+        }
+
+    }
+
+}

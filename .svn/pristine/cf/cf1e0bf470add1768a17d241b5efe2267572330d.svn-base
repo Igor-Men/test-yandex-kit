@@ -1,0 +1,30 @@
+<?php
+
+/**
+ * @author Maxim Miroshnichenko <max@webproduction.ua>
+ * @copyright WebProduction
+ * @package OneBox
+ */
+class ContactService {
+
+    /**
+     * @return ContactService
+     */
+    public static function Get() {
+        if (!self::$_Instance) {
+            self::$_Instance = new self();
+        }
+        return self::$_Instance;
+    }
+
+    private function __construct() {
+
+    }
+
+    private function __clone() {
+
+    }
+
+    private static $_Instance = null;
+
+}

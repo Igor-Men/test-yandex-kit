@@ -1,0 +1,295 @@
+<div class="shop-tabs fixed">
+    <a href="/admin/shop/workflow/">&lsaquo; Бизнес-процессы</a>
+    <a href="/admin/shop/workflow/{|$categoryid|}/">Бизнес-процесс {|$categoryName|}</a>
+    <a href="/admin/shop/workflowstatus/{|$statusid|}/" class="selected">Этап {|$name|}</a>
+    {|*|}<a href="./delete/" >{|$translate_delete|}</a>{|*|}
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+{|if $edit_ok|}
+    <div class="shop-message-success">
+        Данные этапа успешно сохранены.
+    </div>
+{|/if|}
+
+<h1>Редактирование этапа</h1>
+<br />
+<form action="" method="post">
+    <div class="ob-block-doubleform">
+        <div class="wrap">
+            <div class="left-column">
+                <div class="form-element">
+                    <div class="element-caption">Название этапа</div>
+                    <input type="text" name="name" value="{|$control_name|}" />
+                </div>
+
+                {|if $box|}
+                    <div class="form-element">
+                        <div class="element-caption">Описание этапа</div>
+                        <textarea name="description" class="js-autosize" rows="3">{|$control_description|}</textarea>
+                    </div>
+
+                    <div class="double">
+                        <div class="form-element">
+                            <div class="element-caption">Ответственная роль</div>
+                            <select name="roleid" class="chzn-select">
+                                <option value="0">---</option>
+                                {|foreach from=$roleArray item="e"|}
+                                    <option value="{|$e.id|}" {|if $e.id == $control_roleid|} selected {|/if|}>
+                                        {|section name=foo start=0 loop=$e.level|}
+                                            &nbsp;&nbsp;&nbsp;
+                                        {|/section|}
+                                        {|$e.name|}
+                                    </option>
+                                {|/foreach|}
+                            </select>
+                        </div>
+
+                        <div class="form-element">
+                            <div class="element-caption">Конкретный ответственный сотрудник</div>
+                            <select name="managerid" class="chzn-select">
+                                <option value="0">---</option>
+                                <option value="-1" {|if $control_managerid == -1|} selected {|/if|}>Автор задачи</option>
+                                {|foreach from=$managerArray item="e"|}
+                                    <option value="{|$e.id|}" {|if $e.id == $control_managerid|} selected {|/if|}>
+                                        {|$e.name|}
+                                    </option>
+                                {|/foreach|}
+                            </select>
+                        </div>
+                        <div class="clear"></div>
+                    </div>
+
+                    <div class="form-element">
+                        <label>
+                            <input type="checkbox" name="jumpmanager" value="1" {|if $control_jumpmanager|} checked {|/if|} />
+                            При переходе в этот этап менять ответственного. По умолчанию берется ответственный из задачи, иначе конкретный выбранный сотрудник.
+                        </label>
+                    </div>
+                {|/if|}
+
+                <div class="form-element">
+                    <div class="element-caption">Цвет</div>
+                    <input type="text" class="js-color" name="colour" value="{|$control_colour|}"/>
+                </div>
+
+                <div class="form-element">
+                    <div class="element-caption">Форма</div>
+                    <select name="processorform" class="chzn-select">
+                        <option value="0">---</option>
+                        {|foreach from=$processorFormArray key="key" item="name"|}
+                            <option value="{|$key|}" {|if $key == $control_processorform|} selected {|/if|}>{|$name|}</option>
+                        {|/foreach|}
+                    </select>
+                </div>
+
+                <div class="form-element">
+                    <div class="element-caption">Smart-обработчик</div>
+                    <input type="text" name="smart" value="{|$control_smart|}" />
+                </div>
+
+                <div class="form-element">
+                    <a class="ob-link-dashed" href="javascript:void(0);"  onclick="$j('.js-notify_sms_client').slideToggle();">Отправлять уведомление по смс клиенту</a>
+                    <div class="js-notify_sms_client" {|if !$control_text_notify_sms_client|}style="display: none;"{|/if|}>
+                        <textarea cols="40" rows="5" name="text_notify_sms_client">{|$control_text_notify_sms_client|}</textarea>
+                    </div>
+                </div>
+
+                <div class="form-element">
+                    <a class="ob-link-dashed" href="javascript:void(0);"  onclick="$j('.js-notify_sms_admin').slideToggle();">Отправлять уведомление по смс менеджеру</a>
+                    <div class="js-notify_sms_admin" {|if !$control_text_notify_sms_admin|}style="display: none;"{|/if|}>
+                        <textarea cols="40" rows="5" name="text_notify_sms_admin">{|$control_text_notify_sms_admin|}</textarea>
+                    </div>
+                </div>
+
+                <div class="form-element">
+                    <a class="ob-link-dashed" href="javascript:void(0);"  onclick="$j('.js-notify_email_client').slideToggle();">Отправлять уведомление по email клиенту</a>
+                    <div class="js-notify_email_client" {|if !$control_text_notify_email_client|}style="display: none;"{|/if|}>
+                        <textarea style="height: 200px;" cols="40" rows="5" name="text_notify_email_client">{|$control_text_notify_email_client|}</textarea>
+                    </div>
+                </div>
+
+                <div class="form-element">
+                    <a class="ob-link-dashed" href="javascript:void(0);"  onclick="$j('.js-notify_email_admin').slideToggle();">Отправлять уведомление по email менеджеру</a>
+                    <div class="js-notify_email_admin" {|if !$control_text_notify_email_admin|}style="display: none;"{|/if|}>
+                        <textarea style="height: 200px;" cols="40" rows="5" name="text_notify_email_admin">{|$control_text_notify_email_admin|}</textarea>
+                    </div>
+                </div>
+
+                {|if $box|}
+                    <div class="form-element">
+                        <div class="element-caption">Автоматически выполнять переход на следующий этап по истечению срока этапа</div>
+                        <select name="autonextstatusid" class="chzn-select">
+                            <option value="">&nbsp;</option>
+                            {|foreach from=$statusArray item="s"|}
+                                <option value="{|$s.id|}" {|if $s.id == $control_autonextstatusid|} selected {|/if|}>
+                                    {|$s.name|}
+                                </option>
+                            {|/foreach|}
+                        </select>
+                    </div>
+                {|/if|}
+
+                <div class="double">
+                    <div class="form-element">
+                        <div class="element-caption">Изменить бизнес-процесс на</div>
+                        <select name="nextworkflowid" id="js-nextworkflowid" class="chzn-select">
+                            <option value="0">---</option>
+                            {|foreach from=$nextWorkflowArray item="w"|}
+                                <option value="{|$w.id|}" {|if $w.id == $control_nextworkflowid|} selected {|/if|}>
+                                    {|$w.name|}
+                                </option>
+                            {|/foreach|}
+                        </select>
+                    </div>
+
+                    <div class="form-element">
+                        <div class="element-caption">Изменить статус на</div>
+                        <input type="hidden" value="{|$control_nextstatusid|}" id="js-nextstatusid-value">
+                        <select name="nextstatusid" id="js-nextstatusid" class="chzn-select">
+                            <option value="0">Выберите бизнес-процесс</option>
+                        </select>
+                    </div>
+                    <div class="clear"></div>
+                </div>
+            </div>
+            <div class="right-column">
+                <div class="form-element">
+                    <div class="element-caption">Срок</div>
+                    <table>
+                        <tr>
+                            <td>
+                                <input type="text" name="term" value="{|$control_term|}" style="width: 50px;" />
+                            </td>
+                            <td>
+                                <select name="period" class="chzn-select" style="width: 80px;">
+                                    <option value="hour" {|if $control_period == 'hour'|} selected {|/if|}>Час</option>
+                                    <option value="day" {|if $control_period == 'day'|} selected {|/if|}>День</option>
+                                    <option value="week" {|if $control_period == 'week'|} selected {|/if|}>Неделя</option>
+                                    <option value="month" {|if $control_period == 'month'|} selected {|/if|}>Месяц</option>
+                                </select>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                {|if $box|}
+                    <div class="form-element">
+                        <label>
+                            <input type="checkbox" name="onlyauto" value="1" {|if $control_onlyauto|} checked {|/if|} />
+                            Этап нельзя выбирать вручную
+                        </label>
+                    </div>
+
+                    <div class="form-element">
+                        <label>
+                            <input type="checkbox" name="onlyissue" value="1" {|if $control_onlyissue|} checked {|/if|} />
+                            С этапа нельзя уходить пока не решены все подзадачи данного этапа
+                        </label>
+                    </div>
+                {|/if|}
+
+                {|if not $issue && $box|}
+                    <div class="form-element">
+                        <label>
+                            <input type="checkbox" name="need_payment" value="1" {|if $control_need_payment|} checked {|/if|} />
+                            Должна быть оплата
+                        </label>
+                    </div>
+
+                    <div class="form-element">
+                        <label>
+                            <input type="checkbox" name="need_prepayment" value="1" {|if $control_need_prepayment|} checked {|/if|} />
+                            Должна быть предоплата
+                        </label>
+                    </div>
+
+                    <div class="form-element">
+                        <label>
+                            <input type="checkbox" name="need_content" value="1" {|if $control_need_content|} checked {|/if|} />
+                            Необходимо содержание
+                        </label>
+                    </div>
+
+                    <div class="form-element">
+                        <label>
+                            <input type="checkbox" name="need_document" value="1" {|if $control_need_document|} checked {|/if|} />
+                            Необходимы документы
+                        </label>
+                    </div>
+                {|/if|}
+
+                <div class="form-element">
+                    <label>
+                        <input type="checkbox" name="closed" value="1" {|if $control_closed|} checked {|/if|} />
+                        {|if $issue|}
+                            Считать задачу закрытой
+                        {|else|}
+                            Считать заказ закрытым
+                        {|/if|}
+                    </label>
+                </div>
+
+                {|if NOT $issue|}
+                    <div class="form-element">
+                        <label>
+                            <input type="checkbox" name="saled" value="1" {|if $control_saled|} checked {|/if|} />
+                            Считать заказ проданным
+                        </label>
+                    </div>
+
+                    <div class="form-element">
+                        <label>
+                            <input type="checkbox" name="shipped" value="1" {|if $control_shipped|} checked {|/if|} />
+                            Считать заказ отгруженным
+                        </label>
+                    </div>
+
+                    <div class="form-element">
+                        <label>
+                            <input type="checkbox" name="orderxml" value="1" {|if $control_orderxml|} checked {|/if|} />
+                            Выгружать заказ в XML
+                        </label>
+                    </div>
+
+                    <div class="form-element">
+                        <label>
+                            <input type="checkbox" name="ordercsv" value="1" {|if $control_ordercsv|} checked {|/if|} />
+                            Выгружать заказ в CSV
+                        </label>
+                    </div>
+
+                    <div class="form-element">
+                        <label>
+                            <input type="radio" name="orderSupplier" value="" {|if !$control_orderSupplier|} checked {|/if|} />
+                            Не создавать заказ постащику автоматически
+                        </label>
+                    </div>
+
+                    <div class="form-element">
+                        <label>
+                            <input type="radio" name="orderSupplier" value="create" {|if $control_orderSupplier == 'create'|} checked {|/if|} />
+                            Автоматически создать заказ поставщику
+                        </label>
+                    </div>
+
+                    <div class="form-element">
+                        <label>
+                            <input type="radio" name="orderSupplier" value="cancel" {|if $control_orderSupplier == 'cancel'|} checked {|/if|} />
+                            Отменить заказ поставщику (если заказ еще в первом состоянии)
+                        </label>
+                    </div>
+                {|/if|}
+            </div>
+        </div>
+    </div>
+    <br />
+
+    {|$block_module_additions|}
+    <br />
+
+    <div class="ob-button-fixed">
+        <input type="submit" name="send_edit" value="Сохранить" class="ob-button button-green" />
+    </div>
+    <div class="ob-button-fixed-place"></div>
+</form>

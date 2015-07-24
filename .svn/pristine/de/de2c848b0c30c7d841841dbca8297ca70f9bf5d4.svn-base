@@ -1,0 +1,52 @@
+body {
+    background: #FDF5E6;
+}
+
+a {
+    color: #000000
+}
+
+.os-mainwrapper {
+    background-color: #FDF5E6;
+}
+
+.os-fixed-header {
+    header{
+        background-color: #FDF5E6;
+    }
+
+}
+
+.os-category-nav {
+    .element-inner > a {
+        color: #ffffff;
+    }
+
+}
+
+
+.os-popup-block .head {
+    color: #000000;
+}
+
+.os-basket-block {
+    .head{
+        span{
+            background-color: #7A7A7A;
+        }
+    }
+}
+
+.os-submit {
+    color: #ffffff;
+}
+
+.os-tabs-block{
+    a {
+        color: #ffffff;
+    }
+
+    a.selected {
+        color: #ffffff;
+    }
+}

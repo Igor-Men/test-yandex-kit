@@ -1,0 +1,26 @@
+<div class="shop-tabs fixed">
+    <a href="/admin/comment/template/" class="selected">Шаблонные комментарии</a>
+    <a href="./add/">Добавить шаблон</a>
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+
+<div class="inner-list no-filter">
+    <table class="shop-table">
+        <thead>
+            <tr>
+                <td>Название</td>
+                <td>Текст</td>
+            </tr>
+        </thead>
+        <tbody>
+            {|foreach from=$commentArray item="data"|}
+                <tr>
+                    <td><a href="{|$data.url|}">{|$data.name|}</a></td>
+                    <td>{|$data.text|}</td>
+                </tr>
+            {|/foreach|}
+        </tbody>
+    </table>
+</div>
+<div class="clear"></div>

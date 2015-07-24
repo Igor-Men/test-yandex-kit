@@ -1,0 +1,8 @@
+<div class="shop-tabs fixed">
+    <a href="/admin/shop/source/" class="selected">Каналы заказов и клиентов</a>
+    <a href="./add/">Добавить канал</a>
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+
+{|$table|}

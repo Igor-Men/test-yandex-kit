@@ -1,0 +1,49 @@
+<?php
+/**
+ * WebProduction Shop (wpshop)
+ * @copyright (C) 2011-2015 WebProduction (tm) <webproduction.com.ua>
+ *
+ * This program is commercial software; you cannot redistribute it and/or
+ * modify.
+ */
+class Datasource_File extends Forms_ADataSourceSQLObject {
+
+    public function getSQLObject() {
+        if (!$this->_sqlobject) {
+            $this->_sqlobject = Shop::Get()->getFileService()->getFilesAll();
+        }
+        return $this->_sqlobject;
+    }
+
+    public function setSQLObject($sqlobject) {
+        $this->_sqlobject = $sqlobject;
+    }
+
+    protected function _initialize() {
+        $field = new Forms_ContentFieldControlLink('id', 'admin-file-control', 'id');
+        $field->setEditable(false);
+        $field->setName('#');
+        $this->addField($field);
+
+        $field = new Forms_ContentFieldControlLink('name', 'admin-file-control', 'id');
+        $field->setName('Имя файла');
+        $this->addField($field);
+
+        $field = new Forms_ContentFieldDatetime('cdate');
+        $field->setName('Дата загрузки');
+        $this->addField($field);
+
+        $field = new Shop_ContentFieldUserInfo('userid', true);
+        $field->setDataSource(Forms_DataSourceManager::Get()->getDataSource('Datasource_Users'));
+        $field->setName('Автор');
+        $field->setEmptyOptionValue(0);
+        $this->addField($field);
+
+        $field = new Forms_ContentFieldControlLink('Скачать', 'file-download', 'id');
+        $field->setName('Скачать');
+        $field->getContentView()->setFileHTML(dirname(__FILE__).'/Shop_ContentFieldDownload.html');
+        $this->addField($field);
+    }
+
+    private $_sqlobject;
+}

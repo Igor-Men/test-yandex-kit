@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{|if $title|}{|$title|}{|if $shop_title|} &mdash; {|/if|}{|/if|}{|$shop_title|}</title>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <link rel="icon" href="{|$favicon|}" type="image/x-icon" />
+    <link rel="shortcut icon" href="{|$favicon|}" type="image/x-icon" />
+    {|$engine_includes|}
+</head>
+<body>
+    <div class="doc-block-content">
+        {|$content|}
+    </div>
+
+    <div class="doc-block-menu">
+        <div class="caption">
+            <a href="/doc/">Documentation</a>
+        </div>
+        {|$menu|}
+    </div>
+</body>
+</html>

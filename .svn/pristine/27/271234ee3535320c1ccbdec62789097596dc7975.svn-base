@@ -1,0 +1,161 @@
+#!/usr/bin/php
+<?php
+require(dirname(__FILE__).'/packages/PackageLoader/include.php');
+
+//PackageLoader::Get()->setMode('debug');
+PackageLoader::Get()->setMode('development');
+
+require(dirname(__FILE__).'/packages/Engine/include.2.6.php');
+
+Engine::Get()->enableErrorReporting();
+
+print "\n";
+print "Database updated.\n";
+
+try {
+    Engine::GetCache()->clearCache();
+
+    print "Cache cleared.\n";
+} catch (Exception $e) {
+    print "Cache clear error!\n";
+}
+
+file_put_contents(dirname(__FILE__).'/rev.info', date('YmdHis'));
+
+ //$minify = new ShopMinify('/_js/cache/', '/_css/cache/', true);
+// $minify->process();
+
+/*
+// компилияция API
+$code = '<?php ';
+$dirPath = dirname(__FILE__).'/api/db/';
+$list = scandir($dirPath);
+foreach ($list as $x) {
+    if (!preg_match("/\.class\.php$$/ius", $x)) {
+        continue;
+    }
+
+    print 'Compiling '.$x."\n";
+    $tmp = file_get_contents($dirPath.$x);
+    $tmp = str_replace('<?php', '', $tmp);
+    $code .= $tmp;
+    $code .= "\n\n";
+}
+file_put_contents(dirname(__FILE__).'/api/db_compile.php', $code);
+
+$code = '<?php ';
+$dirPath = dirname(__FILE__).'/api/services/';
+$list = scandir($dirPath);
+foreach ($list as $x) {
+    if (!preg_match("/\.class\.php$$/ius", $x)) {
+        continue;
+    }
+
+    print 'Compiling '.$x."\n";
+    $tmp = file_get_contents($dirPath.$x);
+    $tmp = str_replace('<?php', '', $tmp);
+    $code .= $tmp;
+    $code .= "\n\n";
+}
+file_put_contents(dirname(__FILE__).'/api/services_compile.php', $code);
+
+$code = '<?php ';
+$dirPath = dirname(__FILE__).'/api/system/';
+$list = scandir($dirPath);
+foreach ($list as $x) {
+    if (!preg_match("/\.class\.php$$/ius", $x)) {
+        continue;
+    }
+
+    print 'Compiling '.$x."\n";
+    $tmp = file_get_contents($dirPath.$x);
+    $tmp = str_replace('<?php', '', $tmp);
+    $code .= $tmp;
+    $code .= "\n\n";
+}
+file_put_contents(dirname(__FILE__).'/api/system_compile.php', $code);*/
+
+/*
+// занесение всех HTML-файлов в cache (memcache)
+$htmlFileArray = _scandir(dirname(__FILE__).'/templates/');
+$htmlFileArray = array_merge($htmlFileArray, _scandir(dirname(__FILE__).'/contents/'));
+$htmlFileArray = array_merge($htmlFileArray, _scandir(dirname(__FILE__).'/modules/'));
+
+foreach ($htmlFileArray as $html) {
+    try {
+        Storage::Get('shop-cache')->setData('smarty-'.$html, file_get_contents($html));
+        print "Stored to cache ".$html."\n";
+    } catch (Exception $storageEx) {
+
+    }
+}*/
+
+try {
+    print_r(Storage::Get('shop-cache'));
+} catch (Exception $storageEx) {
+
+}
+
+$rev = @$argv[1];
+
+if (!$rev) {
+    $rev = false;
+    while (1) {
+        print "From what revision you updates? Please, input number:\n";
+        $rev = fgets(STDIN);
+        $rev = trim($rev);
+
+        if ($rev > 0) {
+            break;
+        }
+    }
+}
+
+if ($rev != 'force' && $rev > 15000) {
+    print "\n\n";
+    print "Running convert tools from rev #{$rev} ...\n\n";
+
+    $dir = dirname(__FILE__).'/updater/';
+    $a = _scandir($dir, 'php');
+    $toolArray = array();
+    foreach ($a as $script) {
+        if (preg_match("/\/(\d+)-(.+)\.php$/i", $script, $r)) {
+            if ($r[1] >= $rev) {
+                $toolArray[] = array(
+                'path' => $script,
+                'rev' => $r[1],
+                );
+            }
+        }
+    }
+
+    foreach ($toolArray as $x) {
+        $script = $x['path'];
+        print "Running {$script} ...\n";
+        include($script);
+        print "\n\n";
+    }
+}
+
+print "\ndone.\n\n";
+
+function _scandir($path, $ext = 'html') {
+    $tmp = scandir($path);
+    $a = array();
+    foreach ($tmp as $x) {
+        if ($x == '.') {
+            continue;
+        }
+        if ($x == '..') {
+            continue;
+        }
+
+        if (preg_match("/\.{$ext}$/i", $x)) {
+            $a[] = $path.$x;
+        } elseif (is_dir($path.$x)) {
+            $a = array_merge($a, _scandir($path.$x.'/'));
+        }
+    }
+
+    return $a;
+}

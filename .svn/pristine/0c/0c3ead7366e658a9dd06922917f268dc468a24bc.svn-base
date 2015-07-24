@@ -1,0 +1,14 @@
+<div class="shop-tabs fixed">
+    <a href="/admin/shop/banner/">&lsaquo; {|$translate_banner|}</a>
+    {|if $edit|}
+        <a href="../edit/" class="selected">{|$translate_banner_edit|}</a>
+        <a href="../clicks/">{|$translate_statistics_clicks|}</a>
+    {|else|}
+        <a href="../add/" class="selected">{|$translate_banner_add|}</a>
+    {|/if|}
+
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+
+{|$form|}

@@ -1,0 +1,45 @@
+{|if $message == 'error'|}
+    <div class="shop-message-error">
+        Ошибка. Такой встречи не существует.
+    </div>
+{|else|}
+    <h2>Встреча</h2>
+    <div class="shop-meeting-content">
+        <div class="part">
+            <div class="element">
+                <div class="caption">Инициатор:</div>
+                {|$meetingArray.fromuserid|}
+            </div>
+        </div>
+        <div class="part">
+            <div class="element">
+                <div class="caption">Cписок участников:</div>
+                {|foreach from=$meetingArray.touserid item="e"|}
+                    {|$e|}
+                    <br />
+                {|/foreach|}
+            </div>
+        </div>
+        <div class="part">
+            {|if $meetingArray.cdate|}
+                <div class="element">
+                    <div class="caption">Дата и время встречи:</div>
+                    {|$meetingArray.cdate|}
+                </div>
+            {|/if|}
+            {|if $meetingArray.location|}
+                <div class="element">
+                    <div class="caption">Локация:</div>
+                    {|$meetingArray.location|}
+                </div>
+            {|/if|}
+        </div>
+        <div class="clear"></div>
+    </div>
+
+    {|if $meetingArray.content|}
+        <div class="shop-meeting-description">
+            {|$meetingArray.content|}
+        </div>
+    {|/if|}
+{|/if|}

@@ -1,0 +1,43 @@
+<?php
+class shop_quiz_ajax extends Engine_Class {
+
+    public function process() {
+        try {
+            $quizID = $this->getArgument('quizid');
+            $userAnswer = $this->getArgument('useranswer');
+            $quiz = QuizService::Get()->getQuizByID($quizID);
+
+            $userID = false;
+            $userIP = false;
+            try {
+                $user = $this->getUser();
+                $userID = $user->getId();
+            } catch (Exception $ee) {
+                $userIP = @$_SERVER['REMOTE_ADDR'];
+            }
+
+            if ($quiz->getType() == 'radio') {
+                $userAnswer = $userAnswer[0];
+            }
+
+            QuizService::Get()->addQuizUserAnswer($userID, $userIP, $quiz, $userAnswer, true);
+
+            $resultsArray = array();
+            $answers = QuizService::Get()->getQuizAnswers($quiz);
+            while ($x = $answers->getNext()) {
+                $resultsArray[] = array(
+                'id' => $x->getId(),
+                'answer' => $x->getAnswer(),
+                'amount' => $x->getResultamount(),
+                'percent' => $x->getResultpercent()
+                );
+            }
+
+            echo json_encode($resultsArray);
+            exit();
+        } catch (Exception $e) {
+
+        }
+    }
+
+}

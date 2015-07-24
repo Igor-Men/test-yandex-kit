@@ -1,0 +1,11 @@
+<div class="search-helper">
+    <input class="js-search-helper" type="text" name="" value=""/>
+</div>
+
+{|foreach from=$menuArray item="m" key="key"|}
+    <div class="menu-element js-menu-element" data-id="{|$key|}" data-parentid="{|$m.parent|}"
+    style="margin-left: {|math equation="x*15" x=$m.level|}px; display: none;" >
+        <div class="expand"></div>
+        <a href="{|$m.url|}" {|if $m.selected|}class="selected"{|/if|}>{|$m.name|}</a>
+    </div>
+{|/foreach|}

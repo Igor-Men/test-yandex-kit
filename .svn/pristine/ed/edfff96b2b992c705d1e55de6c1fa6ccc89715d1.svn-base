@@ -1,0 +1,84 @@
+<?php
+/**
+ * @author Maxim Miroshnichenko <max@webproduction.ua>
+ * @copyright WebProduction
+ * @package OneClick
+ */
+class Shop_CronMinuteDefault implements Events_IEventObserver {
+
+    public function notify(Events_Event $event) {
+        // xls
+        Shop::Get()->getShopService()->exportTaskXLS();
+        Shop::Get()->getShopService()->importTaskXLS();
+
+        usleep(1000000 / rand(0, 1000)); // issue #63748 - smart timeout
+        Shop::Get()->getShopService()->exportContactsTaskXLS();
+        Shop::Get()->getShopService()->importContactsTaskXLS();
+
+        usleep(1000000 / rand(0, 1000)); // issue #63748 - smart timeout
+
+        Shop::Get()->getShopService()->exportMassiveTaskXLS();
+        Shop::Get()->getShopService()->importMassiveTaskXLS();
+
+        usleep(1000000 / rand(0, 1000)); // issue #63748 - smart timeout
+
+        // устанавливаем даты отправки писем по брошенным корзинам
+        Shop::Get()->getShopService()->setLostBasketEmailDate();
+
+        // отправляем письма по брошенным корзинам
+        Shop::Get()->getShopService()->sendLostBasketEmailLetter();
+
+        usleep(1000000 / rand(0, 1000)); // issue #63748 - smart timeout
+
+        // обработчик статусов
+        $this->_processOrderProductStatus();
+
+        // email
+        MailUtils_Config::Get()->setSender(new MailUtils_SenderMail());
+        MailUtils_SenderQueDB::ProcessQue();
+
+        usleep(1000000 / rand(0, 1000)); // issue #63748 - smart timeout
+
+        // sms
+        $apiLogin = Shop::Get()->getSettingsService()->getSettingValue('turbosms-login');
+        $apiPassword = Shop::Get()->getSettingsService()->getSettingValue('turbosms-password');
+        if ($apiLogin && $apiPassword) {
+            SMSUtils_SenderQueDB::ProcessQue(
+            new SMSUtils_SenderTurbosmsua($apiLogin, $apiPassword)
+            );
+        }
+
+        usleep(1000000 / rand(0, 1000)); // issue #63748 - smart timeout
+
+        // создаем поставщиков по outcoming заказам автоматически
+        Shop::Get()->getSupplierService()->syncSuppliers();
+    }
+
+    private function _processOrderProductStatus() {
+        $status = new XShopOrderProductStatus();
+        while ($s = $status->getNext()) {
+            $logicclass = $s->getLogicclasscron();
+            $logicclassparams = $s->getLogicclasscronparams();
+            if (!$logicclass) {
+                continue;
+            }
+
+            if (!class_exists($logicclass)) {
+                continue;
+            }
+
+            $tmp = explode(',', $logicclassparams);
+            $a = array();
+            foreach ($tmp as $x) {
+                $x = explode('=', $x, 2);
+                if (count($x) == 2) {
+                    $a[$x[0]] = $x[1];
+                }
+            }
+
+            $processor = new $logicclass();
+            $processor->process($a);
+        }
+    }
+
+}

@@ -1,0 +1,443 @@
+<?php
+class admin_shop_tpl extends Engine_Class {
+
+    public function process() {
+        PackageLoader::Get()->registerJSFile('/_js/jQueryTabs.js');
+        PackageLoader::Get()->registerJSFile('/_js/select2.js');
+        PackageLoader::Get()->registerJSFile('/_js/jquery.caret.js');
+        PackageLoader::Get()->registerCSSFile('/_css/select2-modern.css');
+        PackageLoader::Get()->registerJSFile('/_js/jquery.tablesorter.js');
+        PackageLoader::Get()->registerJSFile('/_js/jquery.autosize.js');
+        PackageLoader::Get()->registerJSFile('/_js/jquery.dataTables.min.js');
+        PackageLoader::Get()->registerJSFile('/_js/FixedColumns.min.js');
+        PackageLoader::Get()->registerJSFile('/_js/perfect-scrollbar.js');
+        PackageLoader::Get()->registerCSSFile('/_css/perfect-scrollbar.css');
+        PackageLoader::Get()->registerJSFile('/_js/jquery.ui.timepicker.addon.js');
+        PackageLoader::Get()->registerCSSFile('/_css/jquery.ui.timepicker.addon.css');
+        PackageLoader::Get()->registerJSFile('/_js/jquery.tag.it.js');
+        PackageLoader::Get()->registerCSSFile('/_css/jquery.tagit.css');
+        PackageLoader::Get()->registerJSFile('/_js/jquery.tooltipster.js');
+        PackageLoader::Get()->registerCSSFile('/_css/jquery.tooltipster.css');
+        PackageLoader::Get()->registerJSFile('/_js/jquery.textcomplete.js');
+        PackageLoader::Get()->registerJSFile('/_js/jQueryFilter.js');
+        PackageLoader::Get()->registerJSFile('/_js/jquery-ui.js');
+        PackageLoader::Get()->registerCSSFile('/_css/jquery-ui.css');
+        PackageLoader::Get()->registerJSFile('/_js/hotkey.js');
+
+        // подключение JS API и SelectWindow
+        PackageLoader::Get()->registerJSFile('/contents/shop/api/api.js');
+        PackageLoader::Get()->registerJSFile('/contents/shop/admin/selectwindow/selectwindow.js');
+
+        $isOrder = Shop_ModuleLoader::Get()->isImported('order');
+        $this->setValue('isOrderImported', $isOrder);
+
+        $isFinance = Shop_ModuleLoader::Get()->isImported('finance');
+        $this->setValue('isFinanceImported', $isFinance);
+
+        $isContact = Shop_ModuleLoader::Get()->isImported('contact');
+        $this->setValue('isContactImported', $isContact);
+
+        $acl = array();
+        try {
+            $user = $this->getUser();
+            $this->setValue('user', $user->makeInfoArray());
+            $this->setValue('avatar', $this->getUser()->makeImageGravatar());
+
+            // передаем все ACL user'a
+            $acl = Shop::Get()->getUserService()->getUserACLArray(
+                $this->getUser()
+            );
+            $this->setValue('acl', $acl);
+
+            $this->setValue('emailArray', $user->getEmailArray());
+        } catch (Exception $e) {
+
+        }
+
+        // добавить пункты меню раздела "Настройки"
+        $this->_makeSettingMenu($acl);
+
+        // добавить пункты меню раздела "Отчеты"
+        $this->_makeReportMenu($acl);
+
+        try {
+            $cuser = $this->getUser();
+
+            $this->setValue('menuTopArray', Shop_ModuleLoader::Get()->getTopMenuArray($cuser));
+            $this->setValue('menuReportArray', Shop_ModuleLoader::Get()->getReportMenuArray($cuser));
+            $this->setValue('menuSettingArray', Shop_ModuleLoader::Get()->getSettingMenuArray($cuser));
+        } catch (Exception $ue) {
+
+        }
+
+        try {
+            $this->setValue('branding', Engine::Get()->getConfigField('project-branding'));
+        } catch (Exception $brandEx) {
+
+        }
+
+        // переопределение меню
+        try {
+            $menuArray = Engine::Get()->getConfigField('project-menu');
+
+            // для каждого пункта проверяем права доступа
+            foreach ($menuArray as $url => $name) {
+                try {
+                    $contentID = Engine::Get()->getRequest()->defineContentID($url);
+
+                    if (!$contentID) {
+                        continue;
+                    }
+
+                    $contentData = Engine::GetContentDataSource()->getDataByID($contentID);
+                    $roleArray = $contentData['role'];
+                    if (!$roleArray) {
+                        $roleArray = array();
+                    }
+
+                    foreach ($roleArray as $role) {
+                        if ($this->getUser()->isDenied($role)) {
+                            unset($menuArray[$url]);
+                            break;
+                        }
+                    }
+                } catch (Exception $contentEx) {
+
+                }
+            }
+
+            $this->setValue('menuArray', $menuArray);
+        } catch (Exception $e) {
+
+        }
+
+        $this->setValue('favicon', Shop::Get()->getSettingsService()->getSettingValue('favicon'));
+        $this->setValue('title', Engine::GetHTMLHead()->getTitle());
+        $this->setValue('year', date('Y'));
+        $this->setValue('engine_includes', Engine::GetHTMLHead()->render());
+
+        // отступы для right sidebar
+        $contentID = Engine::Get()->getRequest()->getContentID();
+        $contentArray = array();
+        $contentArray[] = 'shop-admin-orders';
+        $contentArray[] = 'shop-admin-brands';
+        $contentArray[] = 'shop-admin-manage';
+        $contentArray[] = 'shop-admin-orders-report-servicebusy';
+        $contentArray[] = 'shop-admin-products-in-list';
+        $contentArray[] = 'shop-admin-products';
+        $contentArray[] = 'shop-admin-products-inlist';
+        $contentArray[] = 'shop-admin-users';
+        $contentArray[] = 'shop-admin-users-mass-mailing';
+        $contentArray[] = 'shop-admin-users-mass-sms-mailing';
+        $contentArray[] = 'issue-view';
+        $contentArray[] = 'issue-index';
+        $contentArray[] = 'project-index';
+
+        if (in_array($contentID, $contentArray)) {
+            $this->setValue('sidebarPlace', true);
+        }
+
+        // issue #49459 - full history in admin
+        try {
+            $history = new XShopHistory();
+            $history->setUserid($this->getUser()->getId());
+            $history->setCdate(date('Y-m-d H:i:s'));
+            $history->setUrl(Engine::GetURLParser()->getTotalURL());
+            $history->setIp(@$_SERVER['REMOTE_ADDR']);
+
+            $post = '';
+            $a = Engine::GetURLParser()->getArguments();
+            foreach ($a as $key => $value) {
+                if (is_array($value)) {
+                    foreach ($value as $v) {
+                        @$post .= $key.'='.$v."\n";
+                    }
+                } else {
+                    $post .= $key.'='.$value."\n";
+                }
+            }
+
+            $history->setPost($post);
+            $history->insert();
+        } catch (Exception $historyEx) {
+
+        }
+
+        // менеджеры
+        $user = $this->getUser();
+        $managers = Shop::Get()->getUserService()->getUsersManagers($this->getUser());
+        $a = array();
+        $currentUserId = $user->getId();
+        while ($x = $managers->getNext()) {
+            $a[] = array(
+            'id' => $x->getId(),
+            'name' => $x->makeName(),
+            'selected' => $currentUserId == $x->getId(),
+            );
+        }
+        $this->setValue('managerArray', $a);
+
+        $turboSmsLogin =  Shop::Get()->getSettingsService()->getSettingValue('turbosms-login');
+        $turboSmsPass = Shop::Get()->getSettingsService()->getSettingValue('turbosms-password');
+        $turboSmsSender = Shop::Get()->getSettingsService()->getSettingValue('turbosms-sender');
+        if ($turboSmsLogin && $turboSmsPass && $turboSmsSender) {
+            $this->setValue('smsSendOk', true);
+        }
+    }
+
+    /**
+     * Добавить пункты меню раздела "Настройки"
+     */
+    private function _makeSettingMenu($acl) {
+        $isBox = Engine::Get()->getConfigFieldSecure('project-box');
+
+        Shop_ModuleLoader::Get()->registerSettingMenuItem(
+            Shop::Get()->getTranslateService()->getTranslateSecure('translate_global_settings'),
+            '/admin/shop/settings/'
+        );
+
+        if (isset($acl['timework'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_timework'),
+                '/admin/shop/timework/'
+            );
+        }
+
+        if (isset($acl['logo'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_logo'),
+                '/admin/shop/logo/'
+            );
+        }
+
+        if (isset($acl['block'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_blocks'),
+                '/admin/shop/block/'
+            );
+        }
+
+        if (isset($acl['banner'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_banner'),
+                '/admin/shop/banner/'
+            );
+        }
+
+        if (isset($acl['faq'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_faq'),
+                '/admin/shop/faq/'
+            );
+        }
+
+        if (isset($acl['callback'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_callback_small'),
+                '/admin/shop/callback/'
+            );
+        }
+
+        if (isset($acl['product_seo_tags_edit'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_tags'),
+                '/admin/shop/product_tags/'
+            );
+        }
+
+        if (isset($acl['settings'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_currency'),
+                '/admin/shop/currency/'
+            );
+
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_coupons_promocodes_certificates'),
+                '/admin/shop/coupon/'
+            );
+        }
+
+        if (isset($acl['priceplaces'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_priceplace'),
+                '/admin/shop/priceplaces/'
+            );
+        }
+
+        if (isset($acl['delivery'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_delivery_methods'),
+                '/admin/shop/delivery/'
+            );
+        }
+
+        if ($isBox && isset($acl['comment_template'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_comment_template'),
+                '/admin/comment/template/'
+            );
+        }
+
+        if (isset($acl['box'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_boxes'),
+                '/admin/shop/box/'
+            );
+        }
+
+        if (isset($acl['feedback'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_feedback'),
+                '/admin/shop/feedback/'
+            );
+        }
+
+        if (isset($acl['guestbook'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_reviews_of_the_store'),
+                '/admin/shop/guestbook/'
+            );
+        }
+
+        if (isset($acl['marginrule'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_marginrule_system'),
+                '/admin/shop/marginrule/'
+            );
+        }
+
+        if (isset($acl['payment'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_ways_to_pay'),
+                '/admin/shop/payment/'
+            );
+        }
+
+        if (isset($acl['settings'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                'Бизнес-процессы',
+                '/admin/shop/workflow/'
+            );
+
+            if ($isBox) {
+                Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                    'Источники заказов и клиентов',
+                    '/admin/shop/source/'
+                );
+
+                Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                    'Ограничения событий',
+                    '/admin/ignore/'
+                );
+            }
+        }
+
+        if (isset($acl['products_noticeavailability'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_notice_availability'),
+                '/admin/shop/products/noticeavailability/'
+            );
+        }
+
+        if (isset($acl['products_icon'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_products_icon'),
+                '/admin/shop/products/icon/'
+            );
+        }
+
+        if (isset($acl['news'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_news'),
+                '/admin/shop/news/'
+            );
+        }
+
+        if (isset($acl['discount'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_discounts'),
+                '/admin/shop/discount/'
+            );
+        }
+
+        if (isset($acl['contractors'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_contractors'),
+                '/admin/shop/contractors/'
+            );
+        }
+
+        if (isset($acl['gallery'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_gallery'),
+                '/admin/shop/gallery/'
+            );
+        }
+
+        if (isset($acl['redirect'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_URL_and_redirects'),
+                '/admin/shop/redirect/'
+            );
+        }
+
+        if (isset($acl['seo'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                'SEO',
+                '/admin/shop/seo/'
+            );
+        }
+
+        if (isset($acl['products_suppliers'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_suppliers'),
+                '/admin/shop/supplier/'
+            );
+        }
+
+        if (isset($acl['settings'])) {
+            Shop_ModuleLoader::Get()->registerSettingMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_textpages'),
+                '/admin/shop/textpages/'
+            );
+        }
+    }
+
+    private function _makeReportMenu($acl) {
+        if (isset($acl['report_summary'])) {
+            Shop_ModuleLoader::Get()->registerReportMenuItem(
+                'Сводный отчет',
+                '/admin/shop/report/summary/'
+            );
+        }
+
+        if (isset($acl['activity'])) {
+            Shop_ModuleLoader::Get()->registerReportMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_activity'),
+                '/admin/shop/activity/'
+            );
+        }
+
+        if (isset($acl['statistic'])) {
+            Shop_ModuleLoader::Get()->registerReportMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_statistics_search'),
+                '/admin/shop/statistics/search/'
+            );
+        }
+
+        if (isset($acl['users_online'])) {
+            Shop_ModuleLoader::Get()->registerReportMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_users_online'),
+                '/admin/shop/online/'
+            );
+        }
+
+        if (isset($acl['settings'])) {
+            Shop_ModuleLoader::Get()->registerReportMenuItem(
+                Shop::Get()->getTranslateService()->getTranslateSecure('translate_history_of_SMS'),
+                '/admin/shop/smslog/'
+            );
+        }
+    }
+
+}

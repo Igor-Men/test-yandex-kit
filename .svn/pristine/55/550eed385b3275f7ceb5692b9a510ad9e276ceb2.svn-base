@@ -1,0 +1,43 @@
+{|if $message != 'ok'|}
+    <div class="shop-tabs fixed">
+        <a href="/admin/shop/delivery/">&lsaquo; {|$translate_delivery_methods|}</a>
+        <a href="../edit/">{|$translate_edit|}</a>
+        <a href="../delete/" class="selected">{|$translate_delete|}</a>
+        <div class="clear"></div>
+    </div>
+    <div class="shop-tabs-place"></div>
+{|/if|}
+
+{|if $message == 'ok'|}
+    <div class="shop-message-success">
+        {|$translate_delivery_delete_success|}.<br />
+    </div>
+
+    <script>
+        $j(function() {
+            setTimeout(function() {
+                document.location = '/admin/shop/delivery/';
+            }, 3000);
+        });
+    </script>
+{|/if|}
+
+{|if $message == 'error'|}
+    <div class="shop-message-error">
+        {|$translate_delivery_delete_error|}.
+    </div>
+{|/if|}
+
+{|if $message != 'ok'|}
+    <div class="shop-block">
+        <form action="" method="post">
+            {|$translate_delivery_delete_confirm|}
+            <strong>#{|$deliveryid|} {|$name|}</strong>?
+            <br />
+            <br />
+
+            <input type="submit" name="ok" value="{|$translate_yes|}" class="ob-button button-red" />
+            <input class="ob-button" type="button" value="{|$translate_no|}" onclick="document.location='../edit/';" />
+        </form>
+    </div>
+{|/if|}

@@ -1,0 +1,129 @@
+<?php
+/**
+ * WebProduction Shop (wpshop)
+ *
+ * @copyright (C) 2011-2012 WebProduction (tm) <webproduction.com.ua>
+ *
+ * This program is commercial software; you cannot redistribute it and/or
+ * modify.
+ */
+
+/**
+ * Сервис, отвечающий за работу с правами доступа (ACL).
+ * Все ключи ACL хранятся в базе, потому что их формировать это долго и
+ * сервер делает кучу лишних SQL запросов.
+ *
+ * @copyright WebProduction
+ * @package Shop
+ */
+class Shop_AclService extends ServiceUtils_AbstractService {
+
+    /**
+     * Получить список прав доступа.
+     * Метод вернет 2D-массив
+     *
+     * @return array
+     */
+    public function getACLPermissions() {
+        $acl = new XUserACLKey();
+        $acl->setOrder('name', 'ASC');
+        $a = array();
+        while ($x = $acl->getNext()) {
+            $a[] = array(
+                'name' => $x->getName(),
+                'key' => $x->getKey(),
+            );
+        }
+        return $a;
+    }
+
+    /**
+     * Зарегистрировать ACL-permission.
+     * Метод используется модулями для регистрации своих ACL.
+     * Если повторно вызвать метод с теми же параметрами,
+     * то он заменит ACL, а не допишет дубликат.
+     *
+     * Метод хранит список ключей в базе, поэтому достаточно
+     * добавить ключ один раз и он сохранится в проекте навсегда.
+     *
+     * @param string $key
+     * @param string $name
+     */
+    public function addACLPermission($key, $name) {
+        $key = trim($key);
+        $name = trim($name);
+
+        if (!$key) {
+            throw new ServiceUtils_Exception('key');
+        }
+
+        if (!$name) {
+            throw new ServiceUtils_Exception('name');
+        }
+
+        try {
+            SQLObject::TransactionStart();
+
+            $acl = new XUserACLKey();
+            $acl->setKey($key);
+            if ($acl->select()) {
+                $acl->setName($name);
+                $acl->update();
+            } else {
+                $acl->setName($name);
+                $acl->insert();
+            }
+
+            SQLObject::TransactionCommit();
+        } catch (Exception $ge) {
+            SQLObject::TransactionRollback();
+            throw $ge;
+        }
+
+        $this->_aclPermissionArray[$key] = $name;
+    }
+
+    /**
+     * Получить сервис.
+     * Сервис можно подменивать через метод ::Set()
+     *
+     * @return Shop_AclService
+     */
+    public static function Get() {
+        if (!self::$_Instance) {
+            $classname = self::$_Classname;
+            if ($classname) {
+                self::$_Instance = new $classname();
+            } else {
+                self::$_Instance = new self();
+            }
+        }
+        return self::$_Instance;
+    }
+
+    /**
+     * Задать класс сервиса.
+     * override-метод.
+     *
+     * @param string $classname
+     */
+    public static function Set($classname) {
+        self::$_Classname = $classname;
+        self::$_Instance = null;
+    }
+
+    /**
+     * Подменяемый объект сервиса
+     *
+     * @var Shop_AclService
+     */
+    private static $_Instance = null;
+
+    /**
+     * Подменяемое имя класса
+     *
+     * @var string
+     */
+    private static $_Classname = false;
+
+}

@@ -1,0 +1,125 @@
+<div class="product-results js-result-wrap">
+    {|if $productStorageArray|}
+        <table class="shop-table green" style="width: 100%;">
+            <thead>
+                <tr>
+                    <td>ID</td>
+                    <td>Имя</td>
+                    <td>Склад</td>
+                    <td align="right">Цена закупки</td>
+                    <td align="right">Цена продажи</td>
+                    <td>Статус</td>
+                </tr>
+            </thead>
+            {|foreach from=$productStorageArray item="p"|}
+                <tr onclick='issue_add_product("{|$p.id|}", "{|$p.name2|}", "{|$p.categoryName|}",
+                "{|if $isOrderOutcoming|}{|$p.pricebaseInCurrencyDefault|}{|else|}{|$p.price|}{|/if|}", "{|$p.url|}", "{|$p.serial|}")'
+                class="js-order-table-product-search-result">
+                    <td><a class="js-product-preview" data-id="{|$p.id|}" href="{|$p.url|}">{|$p.id|}</a></td>
+                    <td>
+                        {|if $p.categoryName|}<span class="cat-name">{|$p.categoryName|}</span><br />{|/if|}
+                        {|$p.name|}
+                    </td>
+                    <td>{|$p.storageName|}</td>
+                    <td align="right">{|$p.pricebase|} {|$p.pricebasecurrency|}</td>
+                    <td align="right">{|$p.price|} {|$currency|}</td>
+                    <td>
+                        На складе {|$p.storageName|}: {|$p.storage|}<br>
+                        {|if $p.serial|}
+                            с/н: {|$p.serial|}
+                        {|/if|}
+                        Оприходован: {|$p.dateIncoming|}
+                    </td>
+                </tr>
+            {|/foreach|}
+        </table>
+        <br />
+    {|/if|}
+    {|if $productSupplierArray|}
+        <table class="shop-table yellow" style="width: 100%;">
+            <thead>
+                <tr>
+                    <td>ID</td>
+                    <td>Имя</td>
+                    <td>Поставщик</td>
+                    <td align="right">Цена закупки</td>
+                    <td align="right">Цена продажи</td>
+                </tr>
+            </thead>
+            {|foreach from=$productSupplierArray item="p"|}
+                <tr onclick='issue_add_product("{|$p.id|}", "{|$p.name2|}", "{|$p.categoryName|}",
+                "{|if $isOrderOutcoming|}{|$p.pricebaseInCurrencyDefault|}{|else|}{|$p.price|}{|/if|}", "{|$p.url|}")'
+                class="js-order-table-product-search-result">
+                    <td><a class="js-product-preview" data-id="{|$p.id|}" href="{|$p.url|}">{|$p.id|}</a></td>
+                    <td>
+                        {|if $p.categoryName|}<span class="cat-name">{|$p.categoryName|}</span><br />{|/if|}
+                        {|$p.name|}
+                    </td>
+                    <td>
+                        <span style="background-color:{|$p.supplier.color|};">{|$p.supplier.name|}</span>
+                    </td>
+                    <td align="right">{|$p.pricebase|} {|$p.pricebasecurrency|}</td>
+                    <td align="right">{|$p.price|} {|$currency|}</td>
+                </tr>
+            {|/foreach|}
+        </table>
+        <br />
+    {|/if|}
+    {|if $productArray|}
+        <table class="shop-table" style="width: 100%;">
+            <thead>
+                <tr>
+                    <td>ID</td>
+                    <td>Имя</td>
+                    <td align="right">Цена закупки</td>
+                    <td align="right">Цена продажи</td>
+                    <td>Статус</td>
+                </tr>
+            </thead>
+            {|foreach from=$productArray item="p"|}
+                <tr onclick='issue_add_product("{|$p.id|}", "{|$p.name2|}", "{|$p.categoryName|}",
+                "{|if $isOrderOutcoming|}{|$p.pricebaseInCurrencyDefault|}{|else|}{|$p.price|}{|/if|}", "{|$p.url|}")'
+                class="js-order-table-product-search-result">
+                    <td><a class="js-product-preview" data-id="{|$p.id|}" href="{|$p.url|}">{|$p.id|}</a></td>
+                    <td>
+                        {|if $p.categoryName|}<span class="cat-name">{|$p.categoryName|}</span><br />{|/if|}
+                        {|$p.name|}
+                    </td>
+                    <td align="right">{|$p.pricebase|} {|$p.pricebasecurrency|}</td>
+                    <td align="right">{|$p.price|} {|$currency|}</td>
+                    <td>
+                        {|if $p.storage|}{|$p.storage|}<br />{|/if|}
+                        {|if $p.supplierArray|}
+                            Поставщики: <br />
+                            {|foreach from=$p.supplierArray item="s"|}
+                                {|$s.name|} | {|$s.price|} {|$currency|} | {|$s.date|} | {|$s.avail|} | {|$s.availText|} <br />
+                            {|/foreach|}
+                        {|/if|}
+                    </td>
+                </tr>
+            {|/foreach|}
+        </table>
+    {|/if|}
+</div>
+<strong class="ob-link-dashed js-resultlist-toggle opened" style="display: inline-block;margin: 7px 0 0 0;">Скрыть список</strong>
+
+<script>
+    //toglling list and adding height
+    $j(function(){
+        var screenHeight = $j(window).height();
+        $j('.js-result-wrap').css({
+            'max-height': screenHeight/100*60
+        });
+    });
+
+    $j('.js-resultlist-toggle').on('click', function(){
+        if($j(this).hasClass('opened')){
+            $j(this).removeClass('opened').html('Показать список');
+            $j('.js-result-wrap').slideUp();
+        } else {
+            $j(this).addClass('opened').html('Скрыть список');
+            $j('.js-result-wrap').slideDown();
+        }
+    });
+
+</script>

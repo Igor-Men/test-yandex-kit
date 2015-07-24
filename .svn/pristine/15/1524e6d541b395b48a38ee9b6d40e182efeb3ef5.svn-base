@@ -1,0 +1,32 @@
+<div class="shop-tabs">
+    <a href="/admin/shop/quiz/">{|$translate_quizes|}</a>
+    <a href="" class="selected">{|$translate_delete|}</a>
+    <div class="clear"></div>
+</div>
+
+{|if $message == 'ok'|}
+    <div class="shop-message-success">
+        {|$translate_poll_removed|}.<br />
+        <a href="/admin/shop/quiz/">{|$translate_quiz_list|}</a>
+    </div>
+{|/if|}
+
+{|if $message == 'error'|}
+    <div class="shop-message-error">
+        {|$translate_quiz_delete_error|}.
+    </div>
+{|/if|}
+
+{|if $message != 'ok'|}
+    <div class="shop-block">
+        <form action="" method="post">
+            {|$translate_quiz_delete_confirm|}
+            <strong>#{|$quizid|}</strong>: {|$question|}?
+            <br />
+            <br />
+
+            <input class="ob-button" type="submit" name="ok" value="{|$translate_yes|}" />
+            <input class="ob-button" type="button" value="{|$translate_no|}" onclick="document.location='../edit/';" />
+        </form>
+    </div>
+{|/if|}

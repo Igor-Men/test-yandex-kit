@@ -1,0 +1,34 @@
+function sendQuizAnswer() {
+    var quizID = $j('#quiz-id').val();
+    var answer;
+    var type = $j('#quiz-type').val();
+
+    if (type = 'check') {
+        answer = [];
+        $j('#quiz-answers-inputs :checked').each(function() {
+            answer.push($j(this).val());
+        });
+    } else if (type = 'radio') {
+        answer = $j('#quiz-answers-inputs :checked').val();
+    }
+
+    $j.ajax({
+        url: '/quiz/ajax/',
+        type: "POST",
+        data: {quizid : quizID, useranswer : answer},
+        dataType : "json",
+        success: function (data, textStatus) {
+            if (data) {
+                $j('#quiz-content').text('');
+                $j.each(data, function(index, value) {
+                    $j('#quiz-content').append('<div class="item-result"><div class="result"><span>'+value.percent+'% &mdash; '+value.amount+' голос(ов)</span><div class="feel" style="width: '+value.percent+'%;">&nbsp;</div></div><span class="result-answer-text">'+value.answer+'</span></div>');
+                });
+            }
+        }
+    });
+}
+
+function reAnswer() {
+    $j('#quiz-results').hide();
+    $j('#quiz-answers').show();
+}

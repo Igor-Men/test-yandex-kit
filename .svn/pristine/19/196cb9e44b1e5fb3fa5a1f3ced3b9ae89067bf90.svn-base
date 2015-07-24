@@ -1,0 +1,131 @@
+<div class="shop-tabs">
+    <a href="/admin/shop/quiz/">{|$translate_quizes|}</a>
+    <a href="{|$urleditquiz|}" class="selected">{|$translate_edit|}</a>
+    <a href="{|$urldeletequiz|}">{|$translate_delete|}</a>
+    <div class="clear"></div>
+</div>
+
+{|if $message == 'ok'|}
+    <div class="shop-message-success">
+        {|$translate_fuiz_data_save_success|}.
+    </div>
+{|/if|}
+
+{|*if $messageanswer == 'ok'|}
+    <div class="shop-message-success">
+       {|$translate_list_answers_saved|}.
+    </div>
+{|/if*|}
+
+{|if $messageansweradd == 'ok'|}
+    <div class="shop-message-success">
+        {|$translate_fuiz_answer_success|}.
+    </div>
+{|/if|}
+
+{|if $messageerror == 'error'|}
+    <div class="shop-message-error">
+        {|$translate_box_message_error|}.<br />
+
+        {|foreach from=$errorsArray item="e"|}
+            {|if $e == 'question'|}
+               {|$translate_fuiz_error_question|}.<br />
+            {|/if|}
+            {|if $e == 'answer'|}
+               {|$translate_fuiz_error_avswer|}.<br />
+            {|/if|}
+        {|/foreach|}
+    </div>
+{|/if|}
+
+<form action="" method="post">
+    <strong>{|$translate_question|}</strong><br />
+    <textarea name="question" style="width: 50%; height: 70px;">{|$control_question|}</textarea>
+    <br />
+    <br />
+
+    <strong>{|$translate_fuiz_start_date|}</strong><br />
+    <input type="text" name="sdate" value="{|$control_sdate|}" class="js-date" />
+    <br />
+    <br />
+
+    <strong>{|$translate_fuiz_end_date|}</strong><br />
+    <input type="text" name="edate" value="{|$control_edate|}" class="js-date" />
+    <br />
+    <br />
+
+    <script type="text/javascript">
+    $j(function () {
+        $j('.js-date').datepicker({
+            dateFormat: 'yy-mm-dd'
+        });
+    });
+    </script>
+
+    <strong>{|$translate_fuiz_type|}</strong><br />
+    <select name="type" >
+        <option value="check" {|if 'check' == $control_type|} selected {|/if|}>{|$translate_fuiz_type_many|}</option>
+        <option value="radio" {|if 'radio' == $control_type|} selected {|/if|}>{|$translate_fuiz_type_one|}</option>
+    </select>
+    <br />
+    <br />
+
+    <label>
+        <input type="checkbox" name="active" value="1" {|if $control_active|} checked {|/if|} />
+        <strong>{|$translate_fuiz_active|}</strong>
+    </label>
+    <br />
+    <br />
+
+    <input class="ob-button" type="submit" name="ok" value="{|$translate_save|}" />
+    <br />
+    <br />
+
+
+    {|if $answerArray|}
+        <h1>{|$translate_fuiz_answer_array|}</h1>
+        <table border="0" cellpadding="0" cellspacing="0" class="shop-table">
+            <thead>
+                <tr>
+                    <td>{|$translate_answer|}</td>
+                    <td>&nbsp;</td>
+                </tr>
+            </thead>
+
+            <tbody>
+                {|foreach from=$answerArray item="e"|}
+                    <tr>
+                        <td>
+                            <textarea name="answer{|$e.id|}" style="width: 300px; height: 70px; ">{|$e.answer|}</textarea>
+                        </td>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="delete{|$e.id|}" value="1" />
+                                {|$translate_delete_small|}
+                            </label>
+                        </td>
+                    </tr>
+                {|/foreach|}
+            </tbody>
+        </table>
+        <br />
+        <input class="ob-button" type="submit" name="answerok" value="{|$translate_fuiz_save_answers|}" />
+        <br />
+        <br />
+    {|/if|}
+
+</form>
+
+<form action="" method="post">
+    <h1>{|$translate_fuiz_add_answer|}</h1>
+
+    <strong>{|$translate_answer|}</strong><br />
+    <textarea name="answer" style="width: 50%; height: 70px; " >{|$control_answer|}</textarea>
+    <br />
+    <br />
+
+    <input class="ob-button" type="submit" name="answeraddok" value="{|$translate_fuiz_add_answer|}" />
+    <br />
+    <br />
+
+</form>

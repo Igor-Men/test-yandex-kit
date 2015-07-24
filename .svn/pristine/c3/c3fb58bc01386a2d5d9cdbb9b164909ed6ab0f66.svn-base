@@ -1,0 +1,88 @@
+<?php
+/**
+ * WebProduction Shop (wpshop)
+ *
+ * @copyright (C) 2011-2012 WebProduction (tm) <webproduction.com.ua>
+ *
+ * This program is commercial software; you cannot redistribute it and/or
+ * modify.
+ */
+
+/**
+ * В этом файле определяются устанавливается режим работы Engine
+ */
+
+// PackageLoader::Get()->setMode('sCssCompile'); # Устанавливает режим компиляции scss файлов в css
+// PackageLoader::Get()->setMode('development');
+// PackageLoader::Get()->setMode('debug');
+
+// Engine::Get()->enableErrorReporting();
+
+// Engine::Get()->setConfigField('project-host', 'www.localhost');
+
+// часовой пояс проекта
+// date_default_timezone_set('Asia/Almaty');
+
+// помена пользователя для debug режима.
+// В данном примере если я авторизирован под max, то система будет думать что я mzhunussov
+// При этом mzhunussov не будет кикнут (выкинут из системы)
+// Engine::Get()->setConfigField('user-sudo', array('max' => 'mzhunussov'));
+
+/*
+
+// connection to database
+ConnectionManager::Get()->addConnectionDatabase(
+new ConnectionManager_MySQLi(
+'localhost',
+'user',
+'password',
+'db'
+));
+
+*/
+
+// подключение темы
+// Engine::Get()->setConfigField('shop-template', 'mytheme');
+
+// подключение модулей
+Engine::Get()->setConfigField('shop-module', array('quiz'));
+
+// язык сайта по дефолту русский
+// можно прописать en, ua, ru
+Engine::Get()->setConfigField('language-site', false);
+
+// переопределение первых пунктов меню (до  модулей)
+/*Engine::Get()->setConfigField('project-menu', array(
+'/admin/shop/orders/' => 'Заказы',
+'/admin/shop/orders/report/servicebusy/' => 'Сетка занятости',
+'/admin/shop/users/' => 'Клиенты',
+'/admin/shop/products/' => 'Продукты',
+));*/
+
+// автоматически переводить все английские фразы
+// Engine::Get()->setConfigField('seo-transliterate-en2ru-auto', true);
+
+
+// настройка форматов и мест баннеров.
+// настройка перезатирает все стандартные баннера.
+$a = array();
+$a['place1'] = array(
+'name' => 'Баннер на главной странице большой 900x300',
+'width' => 900,
+'height' => 300,
+'method' => false, // prop / crop / false
+);
+$a['place2'] = array(
+'name' => 'Баннер большой везде 900x400',
+'width' => 900,
+'height' => 400,
+'method' => 'crop', // prop / crop / false
+);
+Engine::Get()->setConfigField('shop-banner-place', $a);
+
+// текст для модуля product-favorite
+Engine::Get()->setConfigField('isFavoriteText', 'В избранном');
+Engine::Get()->setConfigField('inFavoriteText', 'В избранное');
+
+// группировка товаров по полю
+Engine::Get()->setConfigField('product-grouped', 'model');

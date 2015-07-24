@@ -1,0 +1,126 @@
+<?php
+class products_filters extends Engine_Class {
+
+    public function process() {
+        ini_set('max_input_vars', 10000);
+
+        try {
+            $product = Shop::Get()->getShopService()->getProductByID(
+            $this->getArgument('id')
+            );
+
+            $this->setValue('productid', $product->getId());
+            Engine::GetHTMLHead()->setTitle('Товар #'.$product->getId());
+     
+            // сохраняем выбор юзера
+            if ($this->getControlValue('ok')) {
+                try {
+                    SQLObject::TransactionStart();
+
+                    $iterationArray = array();//отслеживаем неповторение значений наценок
+                    try {
+                        $filter_count = Engine::Get()->getConfigField('filter_count');
+                    } catch (Exception $e) {
+                        $filter_count = 10;
+                    }
+                    for ($j = 1; $j <= $filter_count; $j++) {
+                        $filterID = $this->getControlValue('filter'.$j.'id');
+                        try {
+                            $filter = Shop::Get()->getShopService()->getProductFilterByID($filterID);
+                            $filterValue = $this->getControlValue('filter'.$j.'value');
+                            $filterUse = $this->getControlValue('filter'.$j.'use');
+                            $filterActual = $this->getControlValue('filter'.$j.'actual');
+                            $filterOption = $this->getControlValue('filter'.$j.'option');
+                            $filterMarkup =  floatval(str_replace(',','.',$this->getControlValue('filter'.$j.'markup')));
+                        } catch (Exception $e) {
+                            $filterID = 0;
+                            $filterValue = '';
+                            $filterActual = 0;
+                            $filterUse = 0;
+                            $filterOption = 0;
+                            $filterMarkup = 0.00;
+                        }
+
+                        // не допускаем возможности повторения тогоже фильтра, с тем же значением
+                        if (empty($iterationArray[$filterID][$filterValue])) {
+                            $product->setField('filter'.$j.'id', $filterID);
+                            $product->setField('filter'.$j.'value', $filterValue);
+                            $product->setField('filter'.$j.'use', $filterUse);
+                            $product->setField('filter'.$j.'actual', $filterActual);
+                            $product->setField('filter'.$j.'option', $filterOption);
+                            $product->setField('filter'.$j.'markup', $filterMarkup);
+                        } else {
+                            $product->setField('filter'.$j.'id', 0);
+                            $product->setField('filter'.$j.'value', '');
+                            $product->setField('filter'.$j.'use', 0);
+                            $product->setField('filter'.$j.'actual', 0);
+                            $product->setField('filter'.$j.'option', 0);
+                            $product->setField('filter'.$j.'markup', 0.00);
+                        }
+
+
+                        $iterationArray[$filterID][$filterValue] = 1;
+                    }
+
+                    $product->update();
+
+                    $this->setValue('message', 'ok');
+
+                    SQLObject::TransactionCommit();
+                } catch (ServiceUtils_Exception $e) {
+                    SQLObject::TransactionRollback();
+
+                    $this->setValue('message', 'error');
+                    $this->setValue('errorsArray', $e->getErrorsArray());
+                }
+            }
+            
+            // проставить товару фильтры по умолчанию
+            Shop::Get()->getShopService()->updateProductFilterDefault($product);
+            
+            // значения по данному товару
+            $a = array();
+            try {
+                $filter_count = Engine::Get()->getConfigField('filter_count');
+            } catch (Exception $e) {
+                $filter_count = 10;
+            }
+            for ($j = 1; $j <= $filter_count; $j++) {
+                $filterID = $product->getField('filter'.$j.'id');
+                $filterValue = $product->getField('filter'.$j.'value');
+                $filterUse = $product->getField('filter'.$j.'use');
+                $filterActual = $product->getField('filter'.$j.'actual');
+                $filterOption = $product->getField('filter'.$j.'option');
+                $filterMarkup = $product->getField('filter'.$j.'markup');
+
+                $a[$j] = array(
+                'id' => $filterID,
+                'value' => htmlspecialchars($filterValue),
+                'use' => $filterUse,
+                'actual' => $filterActual,
+                'option' => $filterOption,
+                'markup' => $filterMarkup,
+                );
+            }
+            $this->setValue('valuesArray', $a);
+
+            // список фильтров
+            $filters = Shop::Get()->getShopService()->getProductFiltersAll();
+            $this->setValue('filtersArray', $filters->toArray());
+
+            $menu = Engine::GetContentDriver()->getContent('shop-admin-products-menu');
+            $menu->setValue('selected', 'filters');
+            $this->setValue('menu', $menu->render());
+
+            $this->setValue('addFilteUrl', Engine::GetLinkMaker()->makeURLByContentID('shop-admin-products-filters-index'));
+
+        } catch (ServiceUtils_Exception $ge) {
+            if (PackageLoader::Get()->getMode('debug')) {
+                print $ge;
+            }
+
+            Engine::Get()->getRequest()->setContentNotFound();
+        }
+    }
+
+}

@@ -1,0 +1,5 @@
+{|if $outcoming|}
+    <div class="shop-icon-out" title="Исходящий / Клиенту или постащвику"></div>
+{|else|}
+    <div class="shop-icon-in" title="Входящий / От клиента"></div>
+{|/if|}

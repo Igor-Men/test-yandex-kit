@@ -1,0 +1,90 @@
+{|if $value == 'clear'|}
+    {|assign var=control_date value=""|}
+    {|assign var=toArray value=""|}
+    {|assign var=control_location value=""|}
+    {|assign var=control_content value=""|}
+{|/if|}
+
+{|if $message == 'ok'|}
+    <div class="shop-message-success">
+        Встреча успешно создана и добавлена в события.<br />
+        Мы напомним Вам о ней заранее.
+    </div>
+{|/if|}
+
+{|if $message == 'error'|}
+    <div class="shop-message-error">
+        Ошибка создания встречи, дата и участники - обязательны к заполнению.
+    </div>
+{|/if|}
+
+{|if $urlredirect|}
+    <script type="text/javascript">
+       document.location = '{|$urlredirect|}';
+    </script>
+{|/if|}
+
+<h1>Добавить встречу</h1>
+<br />
+<form action="" method="post">
+    <div class="ob-block-doubleform">
+        <div class="wrap">
+            <div class="left-column">
+                <div class="form-element">
+                    <div class="element-caption">Короткое описание встречи?</div>
+                    <textarea name="content" class="js-autosize" rows="5">{|$control_content|}</textarea>
+                </div>
+            </div>
+            <div class="right-column">
+                <div class="form-element">
+                    <div class="element-caption">Дата и время встречи</div>
+                    <input type="text" name="date" value="{|$control_date|}" class="js-datetime" />
+                </div>
+
+                <div class="form-element">
+                    <div class="element-caption">Место проведения встречи</div>
+                    <input type="text" name="location" value="{|$control_location|}" />
+                </div>
+
+                <div class="form-element">
+                    <div class="element-caption">Кто инициатор встречи?</div>
+                    <select name="from" class="chzn-select">
+                        {|foreach from=$contactArray item="e"|}
+                            <option value="{|$e.id|}" {|if $e.id == $control_from|} selected {|/if|}>{|$e.name|}</option>
+                        {|/foreach|}
+                    </select>
+                </div>
+
+                <div class="form-element">
+                    <div class="element-caption">Список участников встречи?</div>
+                    <input type="hidden" name="to" value="{|$control_clientid|}" id="js-user-filter-autocomplete-client" style="width: 100%;" />
+                    <script type="text/javascript">
+                        $j(function () {
+                            var tags = [
+                                {|foreach from=$usertoArray item="p" name="foreach1"|}
+                                {'id':{|$p.id|}, 'text':'{|$p.text|}'}
+                                {|if !$smarty.foreach.foreach1.last|},{|/if|}
+                                {|/foreach|}
+                            ];
+
+                            $j("#js-user-filter-autocomplete-client").select2('data', tags);
+                        });
+                    </script>
+                </div>
+
+                <div class="form-element">
+                    <label>
+                        <input type="checkbox" name="send" value="1" />
+                        Отправить приглашение по email всем участникам
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ob-button-fixed">
+        <input type="submit" name="ok" value="{|$translate_save|}" class="ob-button button-green" />
+        <input type="submit" name="okClear" value="{|$translate_save_plus_add|}" class="ob-button" />
+    </div>
+    <div class="ob-button-fixed-place"></div>
+</form>

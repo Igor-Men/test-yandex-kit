@@ -1,0 +1,7 @@
+<div class="shop-tabs fixed">
+    <a href="/admin/shop/products/noticeavailability/" class="selected">{|$translate_notice_availability|}</a>
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+
+{|$table|}

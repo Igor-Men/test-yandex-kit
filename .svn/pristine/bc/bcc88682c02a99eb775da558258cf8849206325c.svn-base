@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{|if $title|}{|$title|}{|if $shop_title|} &mdash; {|/if|}{|/if|}{|$shop_title|}</title>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <link rel="icon" href="{|$favicon|}" type="image/x-icon" />
+    <link rel="shortcut icon" href="{|$favicon|}" type="image/x-icon" />
+    {|$engine_includes|}
+
+    <!--[if IE 8]><link rel="stylesheet" type="text/css" href="/contents/templates/ie8.css" /><![endif]-->
+    <!--[if IE 7]><link rel="stylesheet" type="text/css" href="/contents/templates/ie7.css" /><![endif]-->
+
+    <style>
+        @media print {
+            .shop-admin-navi, .shop-filter-panel, .shop-right-sidebar, .shop-tabs, .shop-tabs-place, .shop-stepper, .shop-export-block {display: none !important;}
+            .shop-admin-content {padding: 20px;}
+            .shop-result-list .inner-list {margin: 0;}
+            .shop-table {border-collapse: collapse;}
+            .shop-table td {border: 1px solid #000000; padding: 5px;}
+            .shop-table a {color: #000000; text-decoration: none;}
+        }
+    </style>
+</head>
+<body>
+    <div class="js-loader"></div>
+
+    <div class="shop-wait js-wait">
+        <span class="js-wait-text">Загрузка...</span>
+    </div>
+
+    <div class="ob-success js-success" style="display: none;">
+        <span class="text"></span>
+    </div>
+
+    <div class="ob-error js-error" style="display: none;">
+        <span class="text"></span>
+    </div>
+
+    <div class="shop-popup-block js-cache-confirm" style="display: none;">
+        <div class="dark"></div>
+        <div class="popupblock">
+            <a href="#" class="close js-cache-clear-no"></a>
+            <div class="head">Сбросить кэш</div>
+            <div class="window-content window-form">
+                <h1>Вы действительно хотите сбросить кэш?</h1>
+                <label>
+                    <input type="checkbox" class="js-cache-image" name="" />
+                    Так же удалить все thumbnail-версии изображений (может занять до 10 минут)
+                </label>
+                <br /><br />
+                <input type="button" value="{|$translate_clear_cash|}" name="" class="ob-button button-green js-cache-clear-yes" />
+                <input type="button" value="{|$translate_cancel|}" name="" class="ob-button button-cancel js-cache-clear-no" />
+            </div>
+        </div>
+    </div>
+
+    <div class="shop-popup-block js-letteradd-popup" style="display: none;">
+        <div class="dark"></div>
+        <div class="popupblock">
+            <a href="#" class="close" onclick="return box_email_popup_close();"></a>
+            <div class="head">Написать письмо</div>
+            <div class="window-content window-form">
+                <div class="element">
+                    <div class="el-caption">Кому</div>
+                    <div class="el-value"><input type="text" id="js-mail-to" name="" value="" placeholder="Введите E-mail" /></div>
+                </div>
+                <div class="element">
+                    <div class="el-caption">Тема письма</div>
+                    <div class="el-value"><input type="text" id="js-mail-subject" name="" value="" placeholder="Укажите тему" /></div>
+                </div>
+                <div class="element">
+                    <div class="el-caption">Дата отправки</div>
+                    <div class="el-value"><input class="js-datetime" type="text" id="js-mail-send-date" name="" value="" placeholder="Укажите дату отправки" /></div>
+                </div>
+                <div class="element">
+                    <div class="el-caption">От кого</div>
+                    <div class="el-value">
+                        <input type="hidden" id="js-mail-from" value=""/>
+                        <select class="chzn-select" onchange="$j('#js-mail-from').val($j(this).val());">
+                            {|foreach from=$emailArray item="e"|}
+                                <option value="{|$e|}">{|$e|}</option>
+                            {|/foreach|}
+                        </select>
+                    </div>
+                </div>
+                <div class="clear"></div>
+                <div class="element">
+                    <textarea name="" id="js-mail-content" placeholder="Сообщение" cols="30" rows="15" style="height: 300px; max-height: 300px;"></textarea>
+                </div>
+                <div class="element">
+                    <div class="el-caption">Добавить файл</div>
+                    <div class="el-value"><input type="file" id="js-mail-files" multiple /></div>
+                </div>
+                <div class="js-letteradd-attachment-container">
+
+                </div>
+                <input type="submit" id="js-mail-send" class="ob-button button-green" value="Отправить" />
+                <input type="button" class="ob-button button-cancel" onclick="return box_email_popup_close();" value="Отмена" />
+            </div>
+        </div>
+    </div>
+
+    <div class="shop-popup-block js-smsadd-popup" style="display: none;">
+        <div class="dark"></div>
+        <div class="popupblock">
+            <a href="#" class="close" onclick="return sms_popup_close();"></a>
+            <div class="head">Написать SMS</div>
+            <div class="window-content window-form">
+                <div class="element">
+                    <div class="el-caption">Телефон</div>
+                    <div class="el-value"><input type="text" id="js-sms-to" value="" placeholder="Введите телефон" /></div>
+                </div>
+                <div class="clear"></div>
+                <div class="element">
+                    <textarea name="" id="js-sms-content" placeholder="Сообщение" cols="30" rows="15" style="height: 50px; max-height: 300px;"></textarea>
+                </div>
+                <input type="submit" id="js-sms-send" class="ob-button button-green" value="Отправить" />
+                <input type="button" class="ob-button button-cancel" onclick="return sms_popup_close();" value="Отмена" />
+            </div>
+        </div>
+    </div>
+
+    <div id="js-smart-workflow-popup" style="display: none;"></div>
+
+    <div class="shop-admin-body">
+        <div class="shop-admin-navi">
+            <div class="head">
+                <div class="shop-fastlink-block js-fastlink">
+                    <div class="list" style="display: none;">
+                        {|if $isContactImported|}
+                            <a href="/admin/shop/users/add/">Добавить контакт<span></span></a>
+                            <a href="/admin/shop/users/add/?typesex=company">Добавить компанию<span></span></a>
+                        {|/if|}
+                        {|if $isOrderImported|}
+                            <a href="/admin/order/add/">Добавить заказ<span></span></a>
+                        {|/if|}
+                        {|if $isFinanceImported|}
+                            <a href="/admin/shop/finance/payment/add/">Добавить платеж<span></span></a>
+                        {|/if|}
+                        <a href="/admin/shop/ticket/support/">Написать в техподдержку<span></span></a>
+                        {|if $smsSendOk|}
+                            <a class="mail" href="#" onclick="$j('.js-start-popup').fadeToggle(); return sms_popup_open();">Написать SMS<span></span></a><br />
+                        {|/if|}
+                    </div>
+                </div>
+
+                <div class="name">
+                    <a href="/admin/">
+                        {|if $branding|}
+                            {|$branding|}
+                        {|else|}
+                            OneClick
+                        {|/if|}
+                    </a>
+                </div>
+                <div class="top-links">
+                    {|* переопределенное меню *|}
+                    {|foreach from=$menuArray item="name" key="url"|}
+                        <a href="{|$url|}">{|$name|}</a>
+                    {|foreachelse|}
+                        {|* обычное меню *|}
+                        {|if $acl.products|}
+                            <a href="/admin/shop/products/list-table/">{|$translate_many_products|}</a>
+                        {|/if|}
+                    {|/foreach|}
+
+                    {|foreach from=$menuTopArray item="e"|}
+                        <a href="{|$e.url|}">{|$e.name|}</a>
+                    {|/foreach|}
+                    {|if $menuReportArray|}
+                        <a href="#" data-name="reports">Отчеты</a>
+                    {|/if|}
+                    <a href="#" data-name="tools">Настройки</a>
+                    <a href="#" data-name="cabinet">{|if $user.login|}{|$user.login|}{|else|}admin{|/if|}</a>
+                    <div class="clear"></div>
+                </div>
+            </div>
+            <div class="clear"></div>
+            <div class="blind">
+                {|if $menuReportArray|}
+                    <div class="inner reports">
+                        <div class="inner-wrap">
+                            {|foreach from=$menuReportArray item="e" name="foreach_report"|}
+                                <div class="list-element"><a href="{|$e.url|}">{|$e.name|}</a></div><br />
+                            {|/foreach|}
+                        </div>
+                    </div>
+                {|/if|}
+
+                {|if NOT $denyShop|}
+                    <div class="inner tools">
+                        <div class="inner-wrap">
+                            {|foreach from=$menuSettingArray item="e" name="foreach_setting"|}
+                                <div class="list-element"><a href="{|$e.url|}">{|$e.name|}</a></div><br />
+                            {|/foreach|}
+                            <div class="list-element"><a href="#" class="js-clear-cache">{|$translate_cash_clear|}</a></div><br />
+                            <div class="list-element"><a href="/help/" target="_blank">{|$translate_help|}</a></div><br />
+                        </div>
+                    </div>
+                {|/if|}
+
+                <div class="inner cabinet">
+                    <div class="inner-wrap">
+                        <div class="list-element"><a href="/">{|$translate_shop|}</a></div><br />
+                        <div class="list-element"><a href="/client/orders/">{|$translate_cabinet|} {|$translate_client|}</a></div><br />
+                        <div class="list-element"><a href="/admin/shop/ticket/support/">{|$translate_technical_support|}</a></div><br />
+                        <div class="list-element"><a href="/logout/">{|$translate_logout|}</a></div><br />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="shop-message-container"></div>
+
+        <div class="shop-admin-content {|if $sidebarPlace|}sidebar-place{|/if|}">
+            {|$content|}
+        </div>
+    </div>
+
+    <div style="display: none;" class="js-usertextcomplete-mentions">{|$mentionsJSON|}</div>
+</body>
+</html>

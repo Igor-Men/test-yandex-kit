@@ -1,0 +1,21 @@
+<?php
+/**
+ * WebProduction Shop (wpshop)
+ * @copyright (C) 2011-2012 WebProduction (tm) <webproduction.com.ua>
+ *
+ * This program is commercial software; you cannot redistribute it and/or
+ * modify.
+ */
+
+/**
+ * @author Maxim Miroshnichenko <max@webproduction.com.ua>
+ * @copyright WebProduction
+ * @package Shop
+ */
+class Shop_ExportNadavi extends Shop_ExportECatalog {
+
+    protected function _getUTMSource() {
+        return 'nadavi.ua';
+    }
+
+}

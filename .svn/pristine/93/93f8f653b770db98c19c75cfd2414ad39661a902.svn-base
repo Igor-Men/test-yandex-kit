@@ -1,0 +1,182 @@
+$colorLinkBase: #007ecf;
+$colorBorderBase: #e1e1e1;
+$fontSizeBase: 14px;
+$lineHeightBase: 18px;
+
+@mixin box-sizing($boxsizing) {
+    -moz-box-sizing: $boxsizing;
+    -webkit-box-sizing: $boxsizing;
+    box-sizing: $boxsizing;
+}
+$bb: border-box;
+
+@mixin transition-duration($duration) {
+    -webkit-transition-duration: $duration;
+    -moz-transition-duration: $duration;
+    -o-transition-duration: $duration;
+    -ms-transition-duration: $duration;
+    transition-duration: $duration;
+}
+
+@mixin scale ($scale) {
+    -moz-transform: scale($scale, $scale);
+    -webkit-transform: scale($scale, $scale);
+    -o-transform: scale($scale, $scale);
+    -ms-transform: scale($scale, $scale);
+    transform: scale($scale, $scale);
+}
+
+html,body {
+    height: 100%;
+    width: 100%;
+}
+
+body, form, div, p, a, img, h1, h2, h3, h4, h5, h6, table, table tr, table td {
+    border: none;
+    color: #000000;
+    font-family: Arial;
+    font-size: $fontSizeBase;
+    font-style: normal;
+    font-weight: normal;
+    margin: 0;
+    padding: 0;
+    outline: none;
+}
+
+body {
+    min-width: 990px;
+}
+
+a {
+    text-decoration: underline;
+    outline: none;
+    color: $colorLinkBase;
+
+    &:hover {
+        text-decoration: none;
+    }
+}
+
+[type=text],
+[type=password],
+[type=mail] {
+    font-size: $fontSizeBase;
+    color: #000000;
+    font-family: Arial;
+    border: 1px solid $colorBorderBase;
+    padding: 0 8px;
+    height: 30px;
+    -webkit-transition-property: color, border;
+    -moz-transition-property: color, border;
+    -o-transition-property: color, border;
+    -ms-transition-property: color, border;
+    transition-property: color, border;
+    @include transition-duration(0.5s);
+    @include box-sizing($bb);
+    vertical-align: middle;
+}
+
+h1,
+h2 {
+    font-size: $fontSizeBase + 8;
+    padding: 0 0 15px 0;
+    color: #555555;
+    font-weight: bold;
+}
+
+h2 {
+    font-size: $fontSizeBase + 6;
+}
+
+.clear {
+    clear: both;
+    font-size: 0;
+    line-height: 0;
+    height: 0;
+    display: block;
+}
+
+.doc-block-content {
+    margin: 0 0 0 300px;
+    padding: 20px;
+
+    img {
+        max-width: 100%;
+    }
+
+    code {
+        border-left: 2px dashed #cccccc;
+        background-color: rgba(0, 0, 0, 0.05);
+        padding: 10px;
+        overflow: auto;
+        width: 100%;
+        display: block;
+        @include box-sizing($bb);
+    }
+}
+
+.doc-block-menu {
+    width: 300px;
+    height: 100%;
+    background-color: rgb(235, 235, 235);
+    overflow: auto;
+    padding: 20px;
+    @include box-sizing($bb);
+    position: fixed;
+    top: 0;
+    left: 0;
+
+    .caption {
+        margin: 0 0 20px 0;
+
+        a {
+            font-weight: bold;
+            color: #898989;
+            text-decoration: none;
+            font-size: $fontSizeBase + 2;
+        }
+    }
+
+    .search-helper {
+        margin: 0 0 20px 0;
+
+        input[type="text"] {
+            width: 100%;
+        }
+    }
+
+    .menu-element {
+        line-height: $lineHeightBase - 4;
+        margin: 0 0 10px 0;
+        position: relative;
+        padding: 0 0 0 15px;
+
+        .selected {
+            color: #000000;
+            text-decoration: none;
+        }
+
+        .expand {
+            cursor: pointer;
+            width: 10px;
+            height: 10px;
+            background: transparent url("/_images/admin/plus-minus.png") no-repeat;
+            text-decoration: none;
+            position: absolute;
+            left: 0;
+            top: 2px;
+
+            &:hover {
+                background-position: right top;
+            }
+
+            &.open {
+                background-position: left bottom;
+
+                &:hover {
+                    background-position: right bottom;
+                }
+            }
+        }
+    }
+}

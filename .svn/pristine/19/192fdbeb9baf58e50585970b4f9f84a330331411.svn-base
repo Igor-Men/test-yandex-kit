@@ -1,0 +1,54 @@
+<?php
+class shop_quiz extends Engine_Class {
+
+    public function process() {
+        try {
+            $quiz = QuizService::Get()->getQuizRandom();
+            $this->setValue('quizid', $quiz->getId());
+            $this->setValue('question', $quiz->getQuestion());
+            $this->setValue('type', $quiz->getType());
+
+            $userID = false;
+            $userIP = false;
+            try {
+                $user = $this->getUser();
+                $userID = $user->getId();
+            } catch (Exception $ee) {
+                $userIP = @$_SERVER['REMOTE_ADDR'];
+            }
+
+            //отвечал ли пользователь на этот опрос
+            $answered = QuizService::Get()->hasUserAnswered($userID, $userIP, $quiz);
+            $this->setValue('answered', $answered);
+
+            // выводим список впросов
+            $quizAnswers = QuizService::Get()->getQuizAnswers($quiz);
+            $anwersArray = array();
+            while ($answer = $quizAnswers->getNext()) {
+            	$anwersArray[] = array(
+            	'id' => $answer->getId(),
+            	'answer' => $answer->getAnswer()
+            	);
+            }
+            $this->setValue('answerArray', $anwersArray);
+
+            if ($answered) {
+                //выводим результаты
+                $resultsArray = array();
+                $answers = QuizService::Get()->getQuizAnswers($quiz);
+                while ($x = $answers->getNext()) {
+                    $resultsArray[] = array(
+                    'id' => $x->getId(),
+                    'answer' => $x->getAnswer(),
+                    'amount' => $x->getResultamount(),
+                    'percent' => $x->getResultpercent()
+                    );
+                }
+                $this->setValue('resultsArray', $resultsArray);
+            }
+        } catch (Exception $e) {
+
+        }
+    }
+
+}

@@ -1,0 +1,68 @@
+<?php
+
+/**
+ * WebProduction Shop (wpshop)
+ * @copyright (C) 2011-2012 WebProduction (tm) <webproduction.com.ua>
+ *
+ * This program is commercial software; you cannot redistribute it and/or
+ * modify.
+ */
+
+/**
+ *
+ * @author a.lazarenko
+ * @package form
+ */
+class Forms_ContentFieldImageCrop extends Forms_ContentField {
+
+    public function __construct($key) {
+
+        PackageLoader::Get()->registerJSFile('/_js/jquery.imgareaselect.pack.js');
+        PackageLoader::Get()->registerCSSFile('/_css/imgareaselect-default.css');
+        PackageLoader::Get()->registerJSFile('/_js/cropper.min.js');
+        PackageLoader::Get()->registerCSSFile('/_css/cropper.css');
+
+        parent::__construct($key);
+
+
+        $this->getContentView()->setFileHTML(dirname(__FILE__) . '/' . __CLASS__ . '.html');
+        $this->getContentControl()->setFileHTML(dirname(__FILE__) . '/' . __CLASS__ . '_Control.html');
+
+        $this->getContentControl()->setTranslateArray(
+                Shop::Get()->getTranslateService()->getTranslateArray()
+        );
+    }
+
+    public function renderView($rowIndex, $cellsArray) {
+        $assigns = array();
+        $keyPrimary = $this->getDataSourceGroup()->getFieldPrimary()->getKey();
+
+        $id = @$cellsArray[$keyPrimary];
+        if ($id) {
+            try {
+                $category = Shop::Get()->getShopService()->getCategoryByID($id);
+                $imageCrop = $category->getImagecrop();
+                if ($imageCrop) {
+                    $src = MEDIA_PATH . '/shop/' . $imageCrop;
+                    if (!file_exists($src) || is_dir($src)) {
+                        return false;
+                    }
+
+                    // получаем формат
+                    $format = Shop::Get()->getSettingsService()->getSettingValue('image-format');
+                    $format = strtolower($format);
+                    if ($format != 'png' && $format != 'jpg') {
+                        $format = 'jpg';
+                    }
+                    $image = ImageProcessor_Thumber::makeThumbUniversal($src, 200, 200, 'prop', PROJECT_PATH, $format);
+                    $assigns['image'] = $image;
+                }
+            } catch (Exception $e) {
+                
+            }
+        }
+
+        return $this->getContentView()->render($assigns);
+    }
+
+}

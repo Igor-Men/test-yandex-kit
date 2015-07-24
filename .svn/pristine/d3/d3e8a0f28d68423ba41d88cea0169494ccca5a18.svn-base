@@ -1,0 +1,72 @@
+<div class="shop-tabs fixed">
+    <a href="/admin/structure/" class="selected">Структура</a>
+    <a href="/admin/role/">Настройка ролей</a>
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+
+<div class="ob-slide-tabs js-slide-tabs js-structure-tabs">
+    <a class="selected" href="#" data-tab="js-block-structure">Структура</a>
+    <a href="#" data-tab="js-block-list">Список</a>
+    <span class="hover"></span>
+    <div class="clear"></div>
+</div>
+
+<div class="js-block-structure">
+
+    <div class="shop-overflow-table">
+        <ul class="ob-block-company-structure js-block-company-structure">
+            {|$block_structure|}
+        </ul>
+    </div>
+
+</div>
+
+<div class="js-block-list" style="display: none;">
+    <table class="shop-table js-sortable" width="100%">
+        <thead>
+            <tr>
+                <th>Фамилия</th>
+                <th>Имя</th>
+                <th>Отчество</th>
+                <th>Должность</th>
+                <th>Телефон</th>
+                <th>E-mail</th>
+                <th>Процессы</th>
+            </tr>
+        </thead>
+        <tbody class="js-structure-sort">
+            {|foreach from=$employerArray item="e"|}
+                <tr>
+                    <td><a href="{|$e.url|}" class="js-contact-preview" data-id="{|$e.id|}">{|$e.namelast|}</a></td>
+                    <td><a href="{|$e.url|}" class="js-contact-preview" data-id="{|$e.id|}">{|$e.namefirst|}</a></td>
+                    <td><a href="{|$e.url|}" class="js-contact-preview" data-id="{|$e.id|}">{|$e.namemiddle|}</a></td>
+                    <td>
+                        {|foreach from=$e.roleArray item="r"|}
+                            {|$r|}
+                            <br />
+                        {|/foreach|}
+                    </td>
+                    <td>
+                        {|foreach from=$e.phoneArray item="p"|}
+                            <a href="#" class="ob-link-dashed js-call-originate" data-phone="{|$p|}">{|$p|}</a>
+                            <br />
+                        {|/foreach|}
+                    </td>
+                    <td>
+                        {|foreach from=$e.emailArray item="p"|}
+                            <a href="#" class="ob-link-dashed js-email-write" data-email="{|$p|}">{|$p|}</a>
+                            <br />
+                        {|/foreach|}
+                    </td>
+                    <td>
+                        {|foreach from=$e.workflowArray item="r"|}
+                            {|$r|}
+                            <br />
+                        {|/foreach|}
+                    </td>
+                </tr>
+            {|/foreach|}
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,35 @@
+<?php
+class quiz_delete extends Engine_Class {
+
+    public function process() {
+        try {
+            $quiz = QuizService::Get()->getQuizByID(
+            $this->getArgument('id')
+            );
+
+            $this->setValue('quizid', $quiz->getId());
+            $this->setValue('question', htmlspecialchars($quiz->getQuestion()));
+
+            Engine::GetHTMLHead()->setTitle('Удаление опроса #'.$quiz->getId());
+
+            if ($this->getControlValue('ok')) {
+                try {
+                    QuizService::Get()->deleteQuiz($quiz->getId());
+
+                    $this->setValue('message', 'ok');
+                } catch (ServiceUtils_Exception $e) {
+                    $this->setValue('message', 'error');
+                    $this->setValue('errorsArray', $e->getErrorsArray());
+                }
+            }
+
+        } catch (ServiceUtils_Exception $ge) {
+            if (PackageLoader::Get()->getMode('debug')) {
+                print $ge;
+            }
+
+            Engine::GetQuery()->setContentNotFound();
+        }
+    }
+
+}

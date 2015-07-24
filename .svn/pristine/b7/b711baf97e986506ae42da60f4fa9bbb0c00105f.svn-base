@@ -1,0 +1,28 @@
+<?php
+
+$pageArray = array();
+
+$pageArray[] = array(
+'key' => 'first-page',
+'filename' => 'first_page.html',
+'title' => 'First Page Title',
+'parent' => ''
+);
+
+$pageArray[] = array(
+'key' => 'second-page',
+'filename' => 'second_page.html',
+'title' => 'Second Page Title',
+'parent' => 'first-page'
+);
+
+// ------------------------------------------------------------------------------------------------------------------
+
+foreach ($pageArray as $page) {
+    Shop_ModuleLoader::Get()->registerHelpItem(
+        $page['key'],
+        dirname(__FILE__).'/'.$page['filename'],
+        $page['title'],
+        $page['parent']
+    );
+}

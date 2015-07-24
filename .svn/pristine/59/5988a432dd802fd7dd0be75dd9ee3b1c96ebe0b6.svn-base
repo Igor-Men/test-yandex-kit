@@ -1,0 +1,43 @@
+<?php
+/**
+ * Импортируем XML/CSV если заказ в нужном статусе
+ *
+ * @author Maxim Miroshnichenko <max@webproduction.ua>
+ * @copyright WebProduction
+ * @package OneClick
+ */
+class Shop_Event_Order_Import_XML_CSV implements Events_IEventObserver {
+
+    public function notify(Events_Event $event) {
+        try {
+            $order = $this->_getOrder($event);
+
+            $orderStatus = $order->getStatus();
+
+            if ($orderStatus->getCreateXml()) {
+                // запись в XML
+                Shop::Get()->getShopService()->orderXML($order);
+            }
+
+            if ($orderStatus->getCreateCsv()) {
+                // запись в CSV
+                Shop::Get()->getShopService()->orderCSV($order);
+            }
+
+        } catch (Exception $xmlEx) {
+
+        }
+    }
+
+    /**
+     * Получить заказ. Метод обертка для типизации.
+     *
+     * @param Events_Event $event
+     *
+     * @return ShopOrder
+     */
+    private function _getOrder(Events_Event $event) {
+        return $event->getOrder();
+    }
+
+}

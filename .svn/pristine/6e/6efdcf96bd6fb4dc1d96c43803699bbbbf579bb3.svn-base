@@ -1,0 +1,8 @@
+<div class="shop-tabs fixed">
+    <a href="/admin/shop/gallery/">&lsaquo; {|$translate_gallery|}</a>
+    <a href="" class="selected">{|$translate_management|}</a>
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+
+{|$form|}

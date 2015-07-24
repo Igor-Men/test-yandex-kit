@@ -1,0 +1,37 @@
+<?php
+/**
+ * Created by PhpStorm.
+ * User: Admin
+ * Date: 04.04.15
+ * Time: 9:43
+ */
+class Order_Edit_After implements Events_IEventObserver {
+
+    public function notify(Events_Event $event) {
+        $object = $event->getOrder();
+        try{
+            $status = $object->getStatus();
+            if ($status->getNextworkflowid()) {
+                try{
+                    $workflow = Shop::Get()->getShopService()->getOrderCategoryByID($status->getNextworkflowid());
+                    $object->setCategoryid($workflow->getId());
+                    $object->setOutcoming($workflow->getOutcoming());
+                    $object->update();
+                    $statusId = $status->getNextstatusid();
+                    if (!$statusId) {
+                        $statusId = $workflow->getStatusDefault()->getId();
+                    }
+
+                    Shop::Get()->getShopService()->updateOrderStatus(Shop::Get()->getUserService()->getUser(), $object, $statusId);
+                } catch (Exception $es) {
+
+                }
+            }
+        } catch (Exception $se) {
+
+        }
+
+    }
+
+
+}

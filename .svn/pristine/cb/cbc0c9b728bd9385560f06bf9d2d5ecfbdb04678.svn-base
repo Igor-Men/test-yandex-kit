@@ -1,0 +1,16 @@
+<?php
+class help_tpl extends Engine_Class {
+
+    public function process() {
+        PackageLoader::Get()->registerJSFile('/_js/jQueryFilter.js');
+
+        $menu = Engine::Get()->GetContentDriver()->getContent('help-menu');
+        $this->setValue('menu', $menu->render());
+
+        $this->setValue('favicon', Shop::Get()->getSettingsService()->getSettingValue('favicon'));
+        $this->setValue('title', Engine::GetHTMLHead()->getTitle());
+        $this->setValue('year', date('Y'));
+        $this->setValue('engine_includes', Engine::GetHTMLHead()->render());
+    }
+
+}

@@ -1,0 +1,104 @@
+<div class="shop-tabs">
+    <a href="{|$productActionUrl|}">&lsaquo; Все наборы товара</a>
+    <div class="clear"></div>
+</div>
+
+{|if $errorArray|}
+    <div class="forms-message-error">
+        {|foreach from=$errorArray item =e|}
+            {|$e|}<br />
+        {|/foreach|}
+    </div>
+{|/if|}
+
+<form method="post">
+    <br>
+    <label>
+        <input type="text" name="name" value="{|$control_name|}" />
+        Название набора
+    </label>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+    <label>
+        <input type="checkbox" name="hidden" value="1" {|if $control_hidden|} checked {|/if|} />
+        Скрыть набор
+    </label>
+    <br>
+
+    <div class="shop-overflow-table">
+        <table class="shop-table js-order-table" width="100%">
+            <thead>
+                <tr>
+                    <td>id</td>
+                    <td>название</td>
+                    <td>Фото</td>
+                    <td>Цена без скидки, {|$currencyDefault|}</td>
+                    <td>Скидка на сайте,%</td>
+                    <td>Цена со скидкой на сайте, {|$currencyDefault|}</td>
+                    <td>Скидка для набора,%</td>
+                    <td>Цена в наборе, {|$currencyDefault|}</td>
+                    <td>&nbsp;</td>
+                </tr>
+            </thead>
+
+            <tbody>
+            {|foreach from=$productsArray item="e" key=k|}
+                <tr class="va_top" data-productid="{|$e.productid|}">
+                    <td>{|$e.productid|}</td>
+                    <td><a href="{|$e.url|}" target="_blank">{|$e.name|}</a></td>
+                    <td>
+                        <a href="{|$e.url|}" target="_blank">
+                            <img src="{|$e.image|}" width="80" alt="" />
+                        </a>
+                    </td>
+                    <td>
+                        {|$e.priceNoDiscount|}
+                    </td>
+                    <td>
+                        {|$e.discount|}
+                    </td>
+                    <td>
+                        {|$e.priceWithDiscount|}
+                    </td>
+                    <td>
+                        <input type="text" name="discount[{|$e.productid|}]" style="width: 40px;" value="{|$e.discountAction|}" />
+                    </td>
+                    <td>
+                        {|$e.actionPrice|}
+                    </td>
+                    <td>
+                        {|if $k>0|}
+                        <label>
+                            <input type="checkbox" name="remove[]" value="{|$e.productid|}" />
+                            Удалить из набора
+                        </label>
+                        {|/if|}
+                    </td>
+                </tr>
+            {|/foreach|}
+            </tbody>
+
+            <tfoot class="order-foot">
+                <tr>
+                    <td class="align_right" colspan="7">Цена набора:</td>
+                    <td class="align_right"><strong class="nowrap">{|$setSum|}&nbsp;{|$currencyDefault|}</strong></td>
+                    <td colspan=""></td>
+                </tr>
+                <tr>
+                    <td colspan="9">
+                        <input type="hidden" id="js-add-query" value="">
+                        <ul class="ob-block-tag" id="js-product-tag" data-input="#js-product-input" style="width: 400px;"></ul>
+                        <input id="js-product-input" type="text" name="productlist" value="" style="display: none;"/>
+                        <a href="#" id="id-product" class="ob-button">{|$translate_select_find_create_product|}...</a>
+                        <a href="#" id="id-product-clear" class="ob-button">{|$translate_clear|}</a>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="9">
+                        <input type="submit" name="update" value="Сохранить">
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    <br />
+</form>

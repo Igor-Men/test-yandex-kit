@@ -1,0 +1,35 @@
+$colorFontDark: #000000;
+$colorFontLight: #90712C;
+
+.os-category-nav {
+    .element-inner > a {
+        color: $colorFontDark;
+    }
+
+}
+
+.os-submit {
+    color: $colorFontDark;
+}
+
+a {
+    color: $colorFontLight;
+}
+
+
+.os-popup-block {
+    .head {
+        color: $colorFontLight;
+    }
+
+}
+
+.os-tabs-block{
+    a {
+        color: $colorFontDark;
+    }
+
+    a.selected {
+        color: #ffffff;
+    }
+}

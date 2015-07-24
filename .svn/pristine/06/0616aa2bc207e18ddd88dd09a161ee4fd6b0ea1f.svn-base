@@ -1,0 +1,51 @@
+<?php
+/**
+ * WebProduction Shop (wpshop)
+ * @copyright (C) 2011-2012 WebProduction (tm) <webproduction.com.ua>
+ *
+ * This program is commercial software; you cannot redistribute it and/or
+ * modify.
+ */
+
+/**
+ * @copyright WebProduction
+ * @package Shop
+ */
+class Datasource_Quiz extends Forms_ADataSourceSQLObject {
+
+    public function getSQLObject() {
+        return QuizService::Get()->getQuizAll();
+    }
+
+    protected function _initialize() {
+        $field = new Forms_ContentFieldControlLink('id', 'shop-admin-quiz-edit', 'id');
+        $field->setEditable(false);
+        $field->setName('#');
+        $this->addField($field);
+
+        $field = new Forms_ContentField('question');
+        $field->setName('Вопрос');
+        $this->addField($field);
+
+        $field = new Forms_ContentField('type');
+        $field->setName('Тип опроса');
+        $this->addField($field);
+
+        $field = new Forms_ContentField('cdate');
+        $field->setName('Дата создания');
+        $this->addField($field);
+
+        $field = new Forms_ContentField('sdate');
+        $field->setName('Дата старта');
+        $this->addField($field);
+
+        $field = new Forms_ContentField('edate');
+        $field->setName('Дата завершения');
+        $this->addField($field);
+
+        $field = new Forms_ContentFieldCheckbox('active');
+        $field->setName('Активен');
+        $this->addField($field);
+    }
+
+}

@@ -1,0 +1,57 @@
+<?php
+/**
+ * WebProduction Shop (wpshop)
+ * @copyright (C) 2011-2012 WebProduction (tm) <webproduction.com.ua>
+ *
+ * This program is commercial software;
+ * you cannot redistribute it and/or modify it.
+ */
+
+require(dirname(__FILE__).'/../packages/Engine/include.2.6.php');
+
+$ftpHost = Shop::Get()->getSettingsService()->getSettingValue('ftp-hostname');
+$ftpPort = Shop::Get()->getSettingsService()->getSettingValue('ftp-port');
+$ftpLogin = Shop::Get()->getSettingsService()->getSettingValue('ftp-login');
+$ftpPassword = Shop::Get()->getSettingsService()->getSettingValue('ftp-password');
+
+if (!$ftpHost && !$ftpPort && !$ftpLogin && !$ftpPassword) {
+    print "\n\nHave not entered all the parameters to connect!\n\n";
+    exit();
+}
+
+$ftp = @ftp_connect($ftpHost, $ftpPort, 10);
+
+if (!ftp_login($ftp, $ftpLogin, $ftpPassword)) {
+    print "\nERROR Connect\n\n";
+    exit();
+}
+
+print "\nConnected.\n\n";
+
+// переходим в массивный режим FTP
+ftp_pasv($ftp, true);
+
+// читаем весь список файлов
+$file_list = ftp_nlist($ftp, ".");
+
+// копируем только XML-файлы
+foreach ($file_list as $file) {
+    if (!preg_match('/\.xml$/', $file)) {
+        continue;
+    }
+
+    $copyfile = PackageLoader::Get()->getProjectPath().'media/import/'.$file;
+
+    print "Downloading file $file (".round(ftp_size($ftp, $file)/1024)."KB)\n";
+
+    if (ftp_get($ftp, $copyfile, $file, FTP_BINARY)) {
+        print "file: $file\n has been copied: $copyfile\n\n";
+    } else {
+        print "downloading fail\n\n";
+    }
+}
+
+
+@ftp_close($ftp);
+
+print "\n\ndone.\n\n";

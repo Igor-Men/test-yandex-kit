@@ -1,0 +1,418 @@
+<?php
+/**
+ * WebProduction Shop (wpshop)
+ * @copyright (C) 2011-2013 WebProduction (tm) <webproduction.ua>
+ *
+ * This program is commercial software; you cannot redistribute it and/or
+ * modify.
+ */
+
+/**
+ * @copyright WebProduction
+ * @package Shop
+ */
+class QuizService extends ServiceUtils_AbstractService {
+
+    /**
+     * @return Quiz
+     */
+    public function getQuizByID($id) {
+        try {
+            return $this->getObjectByID($id, 'Quiz');
+        } catch (Exception $e) {}
+        throw new ServiceUtils_Exception('Quiz by id not found');
+    }
+
+    /**
+     * @return Quiz
+     */
+    public function getQuizAll() {
+        $x = new Quiz();
+        return $x;
+    }
+
+    /**
+     * @return QuizAnswer
+     */
+    public function getQuizAnswerByID($id) {
+        try {
+            return $this->getObjectByID($id, 'QuizAnswer');
+        } catch (Exception $e) {}
+        throw new ServiceUtils_Exception('QuizAnswer by id not found');
+    }
+
+    /**
+     * @return QuizAnswer
+     */
+    public function getQuizAnswerAll() {
+        $x = new QuizAnswer();
+        return $x;
+    }
+
+    /**
+     * @return QuizUserAnswer
+     */
+    public function getQuizUserAnswerByID($id) {
+        try {
+            return $this->getObjectByID($id, 'QuizUserAnswer');
+        } catch (Exception $e) {}
+        throw new ServiceUtils_Exception('QuizUserAnswer by id not found');
+    }
+
+    /**
+     * @return QuizUserAnswer
+     */
+    public function getQuizUserAnswerAll() {
+        $x = new QuizUserAnswer();
+        return $x;
+    }
+
+    /**
+     * @return Quiz
+     */
+    public function getQuizRandom() {
+        $x = new Quiz();
+        $x->setActive(1);
+        $x->addWhereQuery("(`sdate` = '0000-00-00 00:00:00' OR `sdate` <= NOW())");
+        $x->addWhereQuery("(`edate` = '0000-00-00 00:00:00' OR `edate` >= NOW())");
+        $x->setOrder('RAND()');
+        $x->setLimitCount(1);
+        return $x->getNext(true);
+    }
+
+    /**
+     * @param Quiz $quiz
+     * @return QuizAnswer
+     */
+    public function getQuizAnswers(Quiz $quiz) {
+        $x = new QuizAnswer();
+        $x->setQuizid($quiz->getId());
+        return $x;
+    }
+
+    /**
+     * @param Quiz $quiz
+     * @return QuizUserAnswer
+     */
+    public function getQuizUserAnswers(Quiz $quiz) {
+        $x = new QuizUserAnswer();
+        $x->setQuizid($quiz->getId());
+        return $x;
+    }
+
+    /**
+     * Отвечал ли пользователь на этот опрос
+     *
+     * @param int $userID
+     * @param string $userIP
+     * @param Quiz $quiz
+     * @return boolean
+     */
+    public function hasUserAnswered($userID, $userIP, Quiz $quiz) {
+        $x = new QuizUserAnswer();
+        $x->setQuizid($quiz->getId());
+        if ($userID) {
+            $x->setUserid($userID);
+        } elseif ($userIP) {
+            $x->setUserip($userIP);
+        }
+        if ($x->select()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Удалить ответ пользователя на вопрос
+     *
+     * @param Quiz $quiz
+     * @param int $userID
+     * @param string $userIP
+     */
+    public function deleteQuizUserAnswer(Quiz $quiz, $userID, $userIP) {
+        $x = new QuizUserAnswer();
+        $x->setQuizid($quiz->getId());
+        if ($userID) {
+            $x->setUserid($userID);
+        } elseif ($userIP) {
+            $x->setUserip($userIP);
+        }
+        while ($y = $x->getNext()) {
+            $y->delete();
+        }
+    }
+
+    /**
+     * Проголосовать
+     *
+     * @param int $userID
+     * @param string $userIP
+     * @param Quiz $quiz
+     * @param int or array $answerIDs
+     * @param boolean $change
+     */
+    public function addQuizUserAnswer($userID, $userIP, Quiz $quiz, $answerID, $change = false) {
+        try {
+            SQLObject::TransactionStart();
+
+            // проверка пользователя
+            if ($userID) {
+                $user = Shop::Get()->getUserService()->getUserByID($userID);
+            }
+
+            if (!$userID && !$userIP) {
+                throw new ServiceUtils_Exception('user');
+            }
+
+            // проверка, голосовал ли уже пользователь
+            if ($this->hasUserAnswered($userID, $userIP, $quiz)) {
+                if ($change) {
+                    $this->deleteQuizUserAnswer($quiz, $userID, $userIP);
+                } else {
+                    throw new ServiceUtils_Exception('answered');
+                }
+            }
+
+            if ($quiz->getType() == 'radio') {
+
+                // ответ одиин
+                $answerID = (int) $answerID;
+
+                // проверка ответа
+                $answer = $this->getQuizAnswerByID($answerID);
+                if ($answer->getQuizid() != $quiz->getId()) {
+                    throw new ServiceUtils_Exception();
+                }
+
+                $x = new QuizUserAnswer();
+                $x->setQuizid($quiz->getId());
+                if ($userID) {
+                    $x->setUserid($userID);
+                } elseif ($userIP) {
+                    $x->setUserip($userIP);
+                }
+                $x->setCdate(date('Y-m-d H:i:s'));
+                $x->setAnswerid($answerID);
+                $x->insert();
+
+            } elseif ($quiz->getType() == 'check') {
+                $date = date('Y-m-d H:i:s');
+
+                // ответы - это массив
+                foreach ($answerID as $a) {
+                    try {
+                        // проверка ответа
+                        $answer = $this->getQuizAnswerByID($a);
+                        if ($answer->getQuizid() != $quiz->getId()) {
+                            throw new ServiceUtils_Exception();
+                        }
+
+                        $quizUserAnswer = new QuizUserAnswer();
+                        $quizUserAnswer->setQuizid($quiz->getId());
+
+                        if ($userID) {
+                            $quizUserAnswer->setUserid($userID);
+                        } elseif ($userIP) {
+                            $quizUserAnswer->setUserip($userIP);
+                        }
+
+                        $quizUserAnswer->setAnswerid($answer->getId());
+                        $quizUserAnswer->setCdate($date);
+                        $quizUserAnswer->insert();
+                    } catch (ServiceUtils_Exception $e) {
+
+                    }
+                }
+            }
+
+            // пересчет результатов
+            $this->updateQuizResults($quiz);
+
+            SQLObject::TransactionCommit();
+        } catch (Exception $ge) {
+            SQLObject::TransactionRollback();
+            throw $ge;
+        }
+    }
+
+    /**
+     * Получить результаты голосования
+     *
+     * @param Quiz $quiz
+     * @return array
+     */
+    public function getQuizResults(Quiz $quiz){
+        $quizUserAnswers = new QuizUserAnswer();
+        $quizUserAnswers->setQuizid($quiz->getId());
+
+        $quizUserAnswers1 = clone $quizUserAnswers;
+        $quizUserAnswers1->setGroupByQuery('userid, userip');
+        $usersCount = $quizUserAnswers1->getCount();
+
+        $answersArray = array();
+        while ($x = $quizUserAnswers->getNext()) {
+            if (isset($answersArray[$x->getAnswerid()]['amount'])) {
+                $answersArray[$x->getAnswerid()]['amount'] = $answersArray[$x->getAnswerid()]['amount'] + 1;
+            } else {
+                $answersArray[$x->getAnswerid()]['amount'] = 1;
+            }
+            $answersArray[$x->getAnswerid()]['percent'] = ($answersArray[$x->getAnswerid()]['amount'] * 100) / $usersCount;
+        }
+        return $answersArray;
+    }
+
+    /**
+     * Обновить результаты голосования
+     *
+     * @param Quiz $quiz
+     * @return array
+     */
+    public function updateQuizResults(Quiz $quiz){
+        try {
+            SQLObject::TransactionStart();
+
+            $resultsArray = $this->getQuizResults($quiz);
+            $answers = $this->getQuizAnswers($quiz);
+            while ($a = $answers->getNext()) {
+                if (isset($resultsArray[$a->getId()])) {
+                    $a->setResultamount($resultsArray[$a->getId()]['amount']);
+                    $a->setResultpercent($resultsArray[$a->getId()]['percent']);
+                } else {
+                    $a->setResultamount(0);
+                    $a->setResultpercent(0);
+                }
+                $a->update();
+            }
+
+            SQLObject::TransactionCommit();
+        } catch (Exception $ge) {
+            SQLObject::TransactionRollback();
+            throw $ge;
+        }
+    }
+
+    /**
+     * Добавить новый опрос
+     * @return Quiz
+     *
+     */
+    public function addQuiz() {
+        $x = new Quiz();
+        $x->setCdate(date('Y-m-d H:i:s'));
+        $x->insert();
+        return $x;
+    }
+
+    /**
+     * @param Quiz $quiz
+     * @param string $type
+     * @param string $question
+     * @param boolean $active
+     * @param string $sdate
+     * @param string $edate
+     * @return Quiz
+     */
+    public function updateQuiz(Quiz $quiz, $type, $question, $active, $sdate, $edate) {
+        $question = trim($question);
+        if ($question == '') {
+            throw new ServiceUtils_Exception('question');
+        }
+
+        if ($type != 'check' && $type != 'radio') {
+            $type = 'radio';
+        }
+
+        $quiz->setQuestion($question);
+        $quiz->setType($type);
+        $quiz->setActive($active);
+        $quiz->setSdate($sdate);
+        $quiz->setEdate($edate);
+        $quiz->update();
+        return $quiz;
+    }
+
+    /**
+     * @param int $quizID
+     */
+    public function deleteQuiz($quizID) {
+        try {
+            SQLObject::TransactionStart();
+            $quiz = $this->getQuizByID($quizID);
+
+            $answers = $this->getQuizAnswers($quiz);
+            while ($a = $answers->getNext()) {
+                $a->delete();
+            }
+
+            $userAnswers = $this->getQuizUserAnswers($quiz);
+            while ($a = $userAnswers->getNext()) {
+                $a->delete();
+            }
+
+            $quiz->delete();
+
+            SQLObject::TransactionCommit();
+        } catch (Exception $ge) {
+            SQLObject::TransactionRollback();
+            throw $ge;
+        }
+    }
+
+    /**
+     * @param Quiz $quiz
+     * @param string $answer
+     * @return QuizAnswer
+     */
+    public function addQuizAnswer(Quiz $quiz, $answer) {
+        $answer = trim($answer);
+        if (!$answer) {
+            throw new ServiceUtils_Exception('answer');
+        }
+
+        $x = new QuizAnswer();
+        $x->setQuizid($quiz->getId());
+        $x->setAnswer($answer);
+        $x->insert();
+        return $x;
+    }
+
+    /**
+     * @param int $quizAnswerID
+     */
+    public function deleteQuizAnswer($quizAnswerID) {
+        try {
+            SQLObject::TransactionStart();
+
+            $quizAnswer = $this->getQuizAnswerByID($quizAnswerID);
+            $quizUserAnswers = new QuizUserAnswer();
+            $quizUserAnswers->setAnswerid($quizAnswerID);
+            while ($x = $quizUserAnswers->getNext()) {
+                $x->delete();
+            }
+            $quizAnswer->delete();
+
+            SQLObject::TransactionCommit();
+        } catch (Exception $ge) {
+            SQLObject::TransactionRollback();
+            throw $ge;
+        }
+    }
+
+    /**
+     * @return QuizService
+     */
+    public static function Get() {
+        if (!self::$_Instance) {
+            self::$_Instance = new self();
+        }
+        return self::$_Instance;
+    }
+
+    private function __construct() {
+
+    }
+
+    private static $_Instance = null;
+
+}

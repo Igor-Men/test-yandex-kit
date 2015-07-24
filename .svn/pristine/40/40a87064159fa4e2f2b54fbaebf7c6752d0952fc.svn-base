@@ -1,0 +1,8 @@
+{|$menu|}
+
+<div class="shop-tabs">
+    <a href="add/">&lsaquo; Добавить набор</a>
+    <div class="clear"></div>
+</div>
+
+{|$table|}

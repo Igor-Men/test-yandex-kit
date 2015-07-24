@@ -1,0 +1,19 @@
+<?php
+class products_import_from_yml extends Engine_Class {
+
+    public function process() {
+        if ($this->getArgumentSecure('ok')) {
+            try {
+                Shop::Get()->getShopService()->importFromYML(
+                    $this->getControlValue('ymlurl')
+                );
+
+                $this->setValue('message', 'ok');
+            } catch (Exception $e) {
+                $this->setValue('message', 'error');
+            }
+
+        }
+    }
+
+}

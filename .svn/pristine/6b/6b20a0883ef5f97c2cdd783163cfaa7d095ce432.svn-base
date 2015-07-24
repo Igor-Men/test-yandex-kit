@@ -1,0 +1,7 @@
+<div class="shop-tabs fixed">
+    <a href="{|$productActionUrl|}">&lsaquo; Наборы товара</a>
+    <a href="javascript:void(0);" class="selected">Добавление набора</a>
+    <div class="clear"></div>
+</div>
+
+{|$form|}

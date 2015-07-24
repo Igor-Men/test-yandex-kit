@@ -1,0 +1,55 @@
+<?php
+/**
+ * Авто формирование заказов поставщику
+ *
+ * @author Maxim Miroshnichenko <max@webproduction.ua>
+ * @copyright WebProduction
+ * @package OneClick
+ */
+class Shop_Event_Order_Supplier_Detele_OrderProduct implements Events_IEventObserver {
+
+    public function notify(Events_Event $event) {
+        try {
+            // проверяем стаус у текущего заказа
+            $orderProduct = $this->_getOrderProduct($event);
+            $order = $orderProduct->getOrder();
+            $orderStatus = $order->getStatus();
+
+            // удаление товаров из заказа поставщику
+            if ($orderStatus->getCancelOrderSupplier() || $orderStatus->getCreateOrderSupplier()) {
+                // убираем товар из заказа поставщику, если он есть
+                $orderProductsSupplier = Shop::Get()->getShopService()->getOrderProductsAll();
+                $orderProductsSupplier->setLinkkey('orderproduct-' . $orderProduct->getId());
+                // проверка статуса заказа
+                $orderProductsSupplier->addWhereQuery(
+                    "orderid IN (SELECT id FROM shoporder WHERE statusid IN (
+                    SELECT id FROM shoporderstatus WHERE
+                        (payed='0' and saled='0' and prepayed='0' and closed='0' and shipped='0')
+                ))"
+                );
+
+                while ($x = $orderProductsSupplier->getNext()) {
+                    $orderSupplier = $x->getOrder();
+                    $x->delete();
+
+                    Shop::Get()->getShopService()->recalculateOrderSums($orderSupplier);
+                }
+            }
+        } catch (Exception $statusEx) {
+
+        }
+    }
+
+
+    /**
+     * Получить удаляемый OrderProdcut. Метод обертка для типизации.
+     *
+     * @param Events_Event $event
+     *
+     * @return ShopOrderProduct
+     */
+    private function _getOrderProduct(Events_Event $event) {
+        return $event->getOrderProduct();
+    }
+
+}

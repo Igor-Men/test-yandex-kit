@@ -1,0 +1,18 @@
+<?php
+class quiz_add extends Engine_Class {
+
+    public function process() {
+        try {
+            $quiz = QuizService::Get()->addQuiz();
+
+            $this->setValue('urlredirect', $quiz->makeURLEdit());
+        } catch (ServiceUtils_Exception $ee) {
+            if (PackageLoader::Get()->getMode('debug')) {
+                print $ee;
+            }
+
+            Engine::GetQuery()->setContentNotFound();
+        }
+    }
+
+}

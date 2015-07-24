@@ -1,0 +1,55 @@
+$j(function() {
+    // быстрый поиск по меню
+    $j('.js-search-helper').keyup(function() {
+        jQueryFilter.categorySearch('.js-menu-element', this);
+        $j('.js-menu-element .expand').addClass('open');
+        setTimeout("cookieFromDocMenu();", 500);
+    });
+
+    // menu expand
+    $j('.js-menu-element').each(function(){
+        if (!$j(this).data('parentid')) {
+            $j(this).show();
+        }
+
+        var current = $j(this).closest('.js-menu-element').data('id');
+        if (!$j('.js-menu-element[data-parentid="'+ current +'"]').length) {
+            $j(this).find('.expand').hide();
+        }
+    });
+
+    $j('.js-menu-element .expand').click(function(){
+        var current = $j(this).closest('.js-menu-element').data('id');
+        $j(this).toggleClass('open');
+        $j('.js-menu-element[data-parentid="'+ current +'"]').toggle();
+    });
+
+    // menu cookie
+    docMenuFromCookie();
+
+    $j(".js-menu-element .expand").click(function(){
+        setTimeout("cookieFromDocMenu();", 2000);
+    });
+});
+
+function cookieFromDocMenu(){
+    var ch = [];
+    $j(".js-menu-element").each(function(){
+        if($j(this).is(":visible")){
+            ch.push($j(this).data("parentid"));
+        }
+    });
+    $j.cookie("docMenuCookie", ch.join(','));
+}
+
+function docMenuFromCookie(){
+    if($j.cookie("docMenuCookie") == null){
+        return;
+    }
+    var chMap = $j.cookie("docMenuCookie").split(',');
+    for (var i in chMap) {
+        //alert(chMap[i]);
+        $j(".js-menu-element[data-parentid='"+chMap[i]+"']").show();
+        $j(".js-menu-element[data-id='"+chMap[i]+"'] .expand").addClass('open');
+    }
+}

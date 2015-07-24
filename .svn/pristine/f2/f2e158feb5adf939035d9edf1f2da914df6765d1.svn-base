@@ -1,0 +1,300 @@
+<?php
+class issue_add_products_list extends Engine_Class {
+
+    public function process() {
+
+        $name = trim($this->getArgument('name'));
+        $categoryId = $this->getArgumentSecure('categoryId');
+
+        $currency = Shop::Get()->getCurrencyService()->getCurrencySystem();
+        $sto = array();
+        $sup = array();
+        $else = array();
+
+        // поиск по серийнику
+        if (Shop_ModuleLoader::Get()->isImported('storage') && strlen($name) > 3) {
+            $productSerialArray = array();
+            $balance = new ShopStorageBalance();
+            $balance->addWhere('serial', '%'.$name.'%', 'LIKE');
+
+            while ($x = $balance->getNext()) {
+                if ($x->getAmountAvailable() > 0) {
+                    $productSerialArray[$x->getProductid()] = $x->getProductid();
+                }
+            }
+
+            foreach ($productSerialArray as $productId) {
+                try {
+                    $product = Shop::Get()->getShopService()->getProductByID($productId);
+
+                    $name = str_replace('"', '\"', $product->getName());
+                    $name = str_replace('\'', '\"', $name);
+
+                    try{
+                        $categoryName = $product->getCategory()->makeName(false);
+                    } catch (Exception $e) {
+                        $categoryName = false;
+                    }
+
+                    $balance = StorageBalanceService::Get()->getBalanceByProductAndStoragesForSale(
+                        $this->getUser(),
+                        $product
+                    );
+                    $balance->addWhere('serial', '', '<>');
+                    while ($bal = $balance->getNext()) {
+                        if ($bal->getAmountAvailable() <= 0) {
+                            continue;
+                        }
+
+                        try {
+                            $balanceProduct = $bal->getProduct();
+
+                            try {
+                                $pricebaseCurrency = $balanceProduct->getCurrency()->getSymbol();
+                            } catch (Exception $e) {
+                                $pricebaseCurrency = false;
+                            }
+
+                            $sto[$bal->getId()] = array(
+                            'id' => $balanceProduct->getId(),
+                            'name' => $balanceProduct->getName(),
+                            'categoryName' => $categoryName,
+                            'url' => $balanceProduct->makeURLEdit(),
+                            'name2' => $name,
+                            'pricebase' => $balanceProduct->getPricebase(),
+                            'price' => $balanceProduct->makePrice($currency),
+                            'pricebaseInCurrencyDefault' => round(
+                                Shop::Get()->getCurrencyService()->convertCurrency(
+                                    $balanceProduct->getPricebase(),
+                                    $balanceProduct->getCurrency(),
+                                    $currency
+                                ),
+                                2
+                            ),
+                            'storage' => $bal->getAmountAvailable(),
+                            'serial' => $bal->getSerial(),
+                            'pricebasecurrency' => $pricebaseCurrency,
+                            'pricebaseStorage' => $bal->getPricebase(),
+                            'priceStorage' => $bal->getPrice(),
+                            'storageName' => $bal->getStorageName()->getName(),
+                            'dateIncoming' => $bal->getCdate()
+                            );
+                        } catch (Exception $e) {
+
+                        }
+                    }
+                } catch (Exception $e) {
+
+                }
+            }
+
+        }
+
+        // поиск по имени
+        $products = Shop::Get()->getShopService()->searchProducts($name);
+        if ($categoryId) {
+            $str = '(';
+            for ($i=1; $i<=10; $i++) {
+                $str .= '`category'.$i.'id` = '.$categoryId;
+
+                if ($i!=10) {
+                    $str .= ' OR ';
+                }
+            }
+            $str .= ')';
+            $products->addWhereQuery($str);
+        }
+        $products->setLimitCount(1000);
+        while ($x = $products->getNext()) {
+            try {
+                $storage = '';
+                $supplierArray = array();
+
+                if (Shop_ModuleLoader::Get()->isImported('storage')) {
+                    $balance = StorageBalanceService::Get()->getBalanceByProductForReserve(
+                        $x,
+                        $this->getUser()
+                    )->getNext();
+
+                    $productCount = 0;
+                    if ($balance) {
+                        $productCount = round($balance->getAmountAvailable(), 3);
+                    }
+                    if ($productCount > 0) {
+                        $storage = 'На складе: '.$productCount;
+                    }
+                }
+
+                for ($j = 1; $j <= 10; $j++) {
+                    $supplierID = $x->getField('supplier'.$j.'id');
+                    $supplierCurrencyID = $x->getField('supplier'.$j.'currencyid');
+                    $supplierDate = $x->getField('supplier'.$j.'date');
+                    $supplierPrice = $x->getField('supplier'.$j.'price');
+                    $supplierAvailText = $x->getField('supplier'.$j.'availtext');
+                    $supplierAvail = $x->getField('supplier'.$j.'avail');
+
+                    if ($supplierID) {
+                        if (!$supplierCurrencyID) {
+                            $supplierCurrencyID = Shop::Get()->getCurrencyService()->getCurrencySystem()->getId();
+                        }
+
+                        $supplier = Shop::Get()->getShopService()->getSupplierByID($supplierID);
+
+                        if ($supplier->getHidden()) {
+                            continue;
+                        }
+
+                        $price = Shop::Get()->getCurrencyService()->convertCurrency(
+                            $supplierPrice,
+                            Shop::Get()->getCurrencyService()->getCurrencyByID($supplierCurrencyID),
+                            $currency
+                        );
+
+                        $supplierArray[] = array(
+                        'name' => $supplier->getName(),
+                        'color' => $supplier->getColor(),
+                        'avail' => $supplierAvail,
+                        'availText' => $supplierAvailText,
+                        'date' => $supplierDate,
+                        'price' => $price
+                        );
+                    }
+                }
+
+                $name = str_replace('"', '\"', $x->getName());
+                $name = str_replace('\'', '\"', $name);
+
+                try {
+                    $categoryName = $x->getCategory()->makeName(false);
+                } catch (Exception $e) {
+                    $categoryName = false;
+                }
+
+                if ($storage) {
+                    $balance = StorageBalanceService::Get()->getBalanceByProductAndStoragesForSale(
+                        $this->getUser(),
+                        $x
+                    );
+                    while ($bal = $balance->getNext()) {
+                        try {
+                            $balanceProduct = $bal->getProduct();
+
+                            try {
+                                $pricebaseCurrency = $balanceProduct->getCurrency()->getSymbol();
+                            } catch (Exception $e) {
+                                $pricebaseCurrency = false;
+                            }
+
+                            $sto[$bal->getId()] = array(
+                            'id' => $balanceProduct->getId(),
+                            'name' => $balanceProduct->getName(),
+                            'categoryName' => $categoryName,
+                            'url' => $balanceProduct->makeURLEdit(),
+                            'name2' => $name,
+                            'pricebase' => round($balanceProduct->getPricebase(), 2),
+                            'price' => round($balanceProduct->makePrice($currency), 2),
+                            'storage' => $bal->getAmountAvailable(),
+                            'serial' => $bal->getSerial(),
+                            'pricebasecurrency' => $pricebaseCurrency,
+                            'pricebaseInCurrencyDefault' => round(
+                                Shop::Get()->getCurrencyService()->convertCurrency(
+                                    $balanceProduct->getPricebase(),
+                                    $balanceProduct->getCurrency(),
+                                    $currency
+                                ),
+                                2
+                            ),
+                            'pricebaseStorage' => $bal->getPricebase(),
+                            'priceStorage' => $bal->getPrice(),
+                            'storageName' => $bal->getStorageName()->getName(),
+                            'dateIncoming' => $bal->getCdate()
+                            );
+                        } catch (Exception $e) {
+
+                        }
+                    }
+
+                } elseif ($supplierArray) {
+                    $index = 0;
+
+                    try {
+                        $pricebaseCurrency = $x->getCurrency()->getSymbol();
+                    } catch (Exception $e) {
+                        $pricebaseCurrency = false;
+                    }
+
+                    foreach ($supplierArray as $s) {
+                        if (count($supplierArray) > 1) {
+                            $index++;
+                        }
+
+                        $sup[] = array(
+                        'id' => $x->getId(),
+                        'name' => $x->getName(),
+                        'categoryName' => $categoryName,
+                        'url' => $x->makeURLEdit(),
+                        'name2' => $name,
+                        'pricebase' => round($x->getPricebase(), 2),
+                        'pricebasecurrency' => $pricebaseCurrency,
+                        'pricebaseInCurrencyDefault' => round(
+                            Shop::Get()->getCurrencyService()->convertCurrency(
+                                $x->getPricebase(),
+                                $x->getCurrency(),
+                                $currency
+                            ),
+                            2
+                        ),
+                        'price' => round($x->makePrice($currency), 2),
+                        'currency' => $x->getCurrency()->getSymbol(),
+                        'supplier' => $s + array('index' => $index)
+                        );
+                    }
+
+                } else {
+                    try {
+                        $pricebaseCurrency = $x->getCurrency()->getSymbol();
+                    } catch (Exception $e) {
+                        $pricebaseCurrency = false;
+                    }
+
+                    $else[] = array(
+                    'id' => $x->getId(),
+                    'name' => $x->getName(),
+                    'categoryName' => $categoryName,
+                    'url' => $x->makeURLEdit(),
+                    'name2' => $name,
+                    'pricebase' => round($x->getPricebase(), 2),
+                    'pricebasecurrency' => $pricebaseCurrency,
+                    'price' => round($x->makePrice($currency), 2),
+                    'pricebaseInCurrencyDefault' => round(
+                        Shop::Get()->getCurrencyService()->convertCurrency(
+                            $x->getPricebase(),
+                            $x->getCurrency(),
+                            $currency
+                        ),
+                        2
+                    ),
+                    'currency' => $x->getCurrency()->getSymbol()
+                    );
+                }
+            } catch (Exception $e) {
+
+            }
+        }
+
+        $this->setValue('productStorageArray', $sto);
+        $this->setValue('productSupplierArray', $sup);
+        $this->setValue('productArray', $else);
+
+        try {
+            $workflow = Shop::Get()->getShopService()->getOrderCategoryByID(
+                $this->getArgument('workflowId')
+            );
+
+            $this->setValue('isOrderOutcoming', $workflow->getOutcoming());
+        } catch (Exception $we) {
+
+        }
+    }
+
+}

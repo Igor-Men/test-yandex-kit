@@ -1,0 +1,8 @@
+<div class="shop-tabs fixed">
+    <a href="/admin/shop/delivery/" class="selected">{|$translate_delivery_methods|}</a>
+    <a href="./add/">{|$translate_delivery_method_add|}</a>
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+
+{|$table|}

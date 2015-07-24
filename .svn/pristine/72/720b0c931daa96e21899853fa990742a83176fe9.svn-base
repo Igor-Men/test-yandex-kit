@@ -1,0 +1,2250 @@
+<?php
+/**
+ * WebProduction Shop (OneClick)
+ *
+ * @copyright (C) 2011-2015 WebProduction (tm) <webproduction.ua>
+ *
+ * This program is commercial software; you cannot redistribute it and/or
+ * modify.
+ */
+
+/**
+ * Сервис, отвечающий за работу с поставщиками и пересчеты цен
+ */
+class Shop_SupplierService extends ServiceUtils_AbstractService {
+
+    /**
+     * Получить всех поставщиков
+     *
+     * @return ShopSupplier
+     */
+    public function getSuppliersAll() {
+        $x = new ShopSupplier();
+        $x->setOrder('name');
+        return $x;
+    }
+
+    /**
+     * Получить всех активных поставщиков
+     *
+     * @return ShopSupplier
+     */
+    public function getSuppliersActive() {
+        $x = $this->getSuppliersAll();
+        $x->setHidden(0);
+        return $x;
+    }
+
+    /**
+     * Получить поставщика по его номеру
+     *
+     * @param int $supplierID
+     *
+     * @return ShopSupplier
+     */
+    public function getSupplierByID($supplierID) {
+        try {
+            return $this->getObjectByID($supplierID, 'ShopSupplier');
+        } catch (Exception $e) {
+
+        }
+        throw new ServiceUtils_Exception('ShopSupplier by id not found');
+    }
+
+    /**
+     * Создать поставщика.
+     * Если такой уже есть - то возвращаем его.
+     *
+     * @param string $name
+     *
+     * @return ShopSupplier
+     */
+    public function addSupplier($name) {
+        $name = trim($name);
+        if (!$name) {
+            throw new ServiceUtils_Exception();
+        }
+
+        try {
+            SQLObject::TransactionStart();
+
+            $supplier = new ShopSupplier();
+            $supplier->setName($name);
+            if (!$supplier->select()) {
+                $supplier->insert();
+            }
+
+            SQLObject::TransactionCommit();
+
+            return $supplier;
+        } catch (Exception $ge) {
+            SQLObject::TransactionRollback();
+            throw $ge;
+        }
+    }
+
+    /**
+     * Создать поставщиков по outcoming заказам автоматически
+     */
+    public function syncSuppliers() {
+        try {
+            SQLObject::TransactionStart();
+
+            $supplier = new ShopSupplier();
+
+            $orders = Shop::Get()->getShopService()->getOrdersAll();
+            $orders->filterOutcoming(1);
+            $orders->addWhere('userid', 0, '<>');
+            $orders->leftJoinTable(
+                $supplier->getTablename(),
+                $orders->getTablename().'.`userid` = '.$supplier->getTablename().'.`contactid`'
+            );
+            $orders->addWhereQuery($supplier->getTablename().'.`contactid` IS NULL');
+            $orders->setGroupByQuery('userid');
+
+            while ($order = $orders->getNext()) {
+                $supplierName = '';
+                try {
+                    $supplierName = $order->getClient()->makeName();
+                } catch (ServiceUtils_Exception $se) {
+
+                }
+
+                $supplier = new ShopSupplier();
+                $supplier->setContactid($order->getUserid());
+                $supplier->setName($supplierName);
+                $supplier->insert();
+            }
+
+            SQLObject::TransactionCommit();
+        } catch (Exception $ge) {
+            SQLObject::TransactionRollback();
+            throw $ge;
+        }
+    }
+
+    /**
+     * Создать задачи на импорт прайса поставщика,
+     * задачи разбиваются на части по 1000 позиций
+     *
+     * @param integer $supplierId
+     * @param integer $currencySupplierId
+     * @param array $file
+     * @param string $type
+     * @param string $encoding
+     * @param integer $columnCode
+     * @param integer $columnName
+     * @param integer $columnPrice
+     * @param integer $columnArticul
+     * @param integer $columnMinretail
+     * @param integer $currencyMinretail
+     * @param integer $columnRecommretail
+     * @param integer $currencyRecommretail
+     * @param integer $columnAvail
+     * @param integer $columnDiscount
+     * @param bool $isSearchCode
+     * @param bool $isSearchCodeThis
+     * @param bool $isSearchName
+     * @param bool $isSearchArticul
+     *
+     * @return array
+     */
+    public function createSupplierImport($supplierId, $currencySupplierId, $file, $type, $encoding, $columnCode,
+    $columnName, $columnPrice,  $columnArticul = false, $columnMinretail = false,
+    $currencyMinretail = false, $columnRecommretail = false, $currencyRecommretail = false, $columnAvail = false,
+    $columnDiscount = false, $isSearchCode = false, $isSearchCodeThis = false, $isSearchCodeMD5 = false,
+    $isSearchName = false, $isSearchNamePrecision = 100, $isSearchArticul =  false, $createNewProduct = false,
+    $onlyRetail = false, $removeMinretail = false, $removeRecommretail = false, $notimportemptyprice = false,
+    $columcomment = false) {
+        // один потому как положительный результат имеет заначение 0
+        $result = 1;
+
+        if ($type == 'xls' || $type == 'xlsx') {
+
+            $file = @$file['tmp_name'];
+            $ex = new ServiceUtils_Exception();
+            if (!file_exists($file)) {
+                $ex->addError('file');
+                throw $ex;
+            }
+
+            if ($type == 'xlsx') {
+                $mediaFile = md5(file_get_contents($file)) . '.xlsx';
+            } elseif ($type == 'xls') {
+                $mediaFile = md5(file_get_contents($file)) . '.xls';
+            }
+
+            copy($file, PackageLoader::Get()->getProjectPath().'media/import/'.$mediaFile);
+
+            // пробуем конвертировать в csv
+            $result = $this->_convertXLStoCSV($mediaFile);
+            if ((int) $result != 0) {
+
+                // если не сработал и тип xlsx
+                if ($type == 'xlsx') {
+                    $ex->addError('xls2csv');
+                    throw $ex;
+                }
+
+                // если конвертор не сработал
+                // обрабатываем файл xls
+                PackageLoader::Get()->import('XLS');
+                $data = new XLS_Reader();
+                $data->setOutputEncoding('UTF-8');
+                $data->read($file);
+                $numRows = $data->sheets[0]['numRows'];
+
+            } else {
+                // если сработал
+                $csv = PackageLoader::Get()->getProjectPath().'media/import/csv/Sheet1.csv';
+                $type = 'csv-comma';
+                $mediaFile = md5(file_get_contents($csv)).'.csv';
+                copy($csv, PackageLoader::Get()->getProjectPath().'media/import/'.$mediaFile);
+                $f = file($csv);
+                $numRows = count($f);
+            }
+
+        } elseif ($type == 'csv-default' || $type == 'csv-comma' || $type == 'csv-tab') {
+            $file = @$file['tmp_name'];
+            $mediaFile = md5(file_get_contents($file)).'.csv';
+            copy($file, PackageLoader::Get()->getProjectPath().'media/import/'.$mediaFile);
+            $f = file($file);
+            $numRows = count($f);
+        }
+        $step = $numRows / 1000;
+        // к целому числу
+        $step = ceil($step);
+
+        // дополнительные настройки
+        $optionArray = array();
+        if ($isSearchCode) {
+            $optionArray[] = 'isSearchCode';
+        }
+        if ($isSearchCodeThis) {
+            $optionArray[] = 'isSearchCodeThis';
+        }
+        if ($isSearchCodeMD5) {
+            $optionArray[] = 'isSearchCodeMD5';
+        }
+        if ($isSearchArticul) {
+            $optionArray[] = 'isSearchArticul';
+        }
+        if ($isSearchName) {
+            $optionArray[] = 'isSearchName';
+        }
+        if ($createNewProduct) {
+            $optionArray[] = 'createNewProduct';
+        }
+        if ($onlyRetail) {
+            $optionArray[] = 'onlyRetail';
+        }
+        if ($removeRecommretail) {
+            $optionArray[] = 'removeRecommretail';
+        }
+        if ($removeMinretail) {
+            $optionArray[] = 'removeMinretail';
+        }
+
+        if ($notimportemptyprice) {
+            $optionArray[] = 'notimportemptyprice';
+        }
+
+        $option = serialize($optionArray);
+        // дата создания задач
+        $date = date("Y-m-d H:i:s");
+
+        // создать запись о загрузке прайса в таблицу отчета
+        $importStatus = new XPriceSupplierImportStatus;
+        $importStatus->setDateupload($date);
+        $importStatus->setSupplierid($supplierId);
+        $importStatus->insert();
+
+        // создать запись в базу
+        $firstPart = true;
+        while ($step) {
+            $supplierImport = new XShopPriceSupplierImport();
+            $supplierImport->setCdate($date);
+            // пока не получено подтверждение ожидаем
+            $supplierImport->setPdate($date);
+            $supplierImport->setStep($step);
+            $supplierImport->setSupplierid($supplierId);
+            $supplierImport->setSuppliercurrencyid($currencySupplierId);
+            $supplierImport->setFile($mediaFile);
+            $supplierImport->setFiletype($type);
+            $supplierImport->setFileencoding($encoding);
+            $supplierImport->setColumncode($columnCode);
+            $supplierImport->setColumnname($columnName);
+            $supplierImport->setColumnarticul($columnArticul);
+            $supplierImport->setColumnprice($columnPrice);
+            $supplierImport->setColumnminretail($columnMinretail);
+            $supplierImport->setColumnminretail_cur_id($currencyMinretail);
+            $supplierImport->setColumnrecommretail($columnRecommretail);
+            $supplierImport->setColumnrecommretail_cur_id($currencyRecommretail);
+            $supplierImport->setColumnavail($columnAvail);
+            $supplierImport->setColumndiscount($columnDiscount);
+            $supplierImport->setOptionarray($option);
+            $supplierImport->setSearchnameprecision($isSearchNamePrecision);
+            $supplierImport->setColumncomment($columcomment);
+            if ($firstPart) {
+                // Первая запись
+                $supplierImport->setFirstpart(1);
+                $firstPart = false;
+            }
+            $step--;
+            if ($step == 0) {
+                // Последняя запись
+                $supplierImport->setLastpart(1);
+            }
+            $supplierImport->insert();
+
+        }
+        return array('date'=> $date, 'resaltConvert'=> $result);
+    }
+
+    /**
+     * обработать очередь загрузки прайса поставщика
+     */
+    public function importSupplierPrice() {
+        $ex = new ServiceUtils_Exception();
+        $supplierImport = new XShopPriceSupplierImport();
+        $supplierImport->setPdate('0000-00-00 00:00:00');
+        $supplierImport->setOrder('step', 'DESC');
+        if ($x = $supplierImport->getNext()) {
+            print_r($x->getValues());
+
+            $dateUpload = $x->getCdate();
+            $step = $x->getStep();
+            $file = $x->getFile();
+            $type = $x->getFiletype();
+            $fileEncoding = $x->getFileencoding();
+            $currencySupplierId = $x->getSuppliercurrencyid();
+            $supplierId = $x->getSupplierid();
+            $columnCode = $x->getColumncode();
+            $columnName = $x->getColumnname();
+            $columnArticul = $x->getColumnarticul();
+            $columnPrice = $x->getColumnprice();
+            $columnMinRetail = $x->getColumnminretail();
+            $currencyMinretail = $x->getColumnminretail_cur_id();
+            $columnRecommRetail = $x->getColumnrecommretail();
+            $currencyRecommRetail = $x->getColumnrecommretail_cur_id();
+            $columnAvail = $x->getColumnavail();
+            $columnDiscount = $x->getColumndiscount();
+            $optionarray = unserialize($x->getOptionarray());
+            $lastPart = $x->getLastpart();
+            $firstPart = $x->getFirstpart();
+            $nameSearchPrecision = $x->getSearchnameprecision();
+            $columnComment = $x->getColumncomment();
+            $notimportemptyprice = false;
+            if (in_array('isSearchName', $optionarray, true)) {
+                if (!$nameSearchPrecision || $nameSearchPrecision >= 100) {
+                    $nameSearchPrecision = 100;
+                }
+                if ($nameSearchPrecision <= 50) {
+                    $nameSearchPrecision = 50;
+                }
+
+                $optionarray['nameSearchPrecision'] = $nameSearchPrecision;
+            } else {
+                $optionarray['nameSearchPrecision'] = 0;
+            }
+
+            // импорт только рцц и мин розницы
+            if (in_array('onlyRetail', $optionarray, true)) {
+                $onlyRetail = true;
+            }
+
+            // не импортировать товары с пустой ценой
+            if (in_array('notimportemptyprice', $optionarray, true)) {
+                $notimportemptyprice = true;
+            }
+
+            // получаем поставщика
+            try {
+                $supplier = Shop::Get()->getShopService()->getSupplierByID(
+                    $supplierId
+                );
+            } catch (ServiceUtils_Exception $se) {
+                $ex->addError('supplier');
+            }
+
+            // получаем валюту
+            try {
+                $currency = Shop::Get()->getCurrencyService()->getCurrencyByID(
+                    $currencySupplierId
+                );
+            } catch (ServiceUtils_Exception $se) {
+                $ex->addError('currency');
+            }
+
+            // валюта мин розницы
+            try {
+                $currencyMinretail = Shop::Get()->getCurrencyService()->getCurrencyByID(
+                    $currencyMinretail
+                );
+            } catch (ServiceUtils_Exception $se) {
+                $currencyMinretail = $currency;
+            }
+
+            // валюта рекомендуемой розницы
+            try {
+                $currencyRecommRetail = Shop::Get()->getCurrencyService()->getCurrencyByID(
+                    $currencyRecommRetail
+                );
+            } catch (ServiceUtils_Exception $se) {
+                $currencyRecommRetail = $currency;
+            }
+
+            if (!$columnCode || !$columnName) {
+                $ex->addError('column');
+            }
+
+
+            if (!$columnPrice && !$onlyRetail) {
+                $ex->addError('column');
+            }
+
+            if ($ex->getErrorsArray()) {
+                throw $ex;
+            }
+
+            if ($firstPart) {
+                // Помечаем товары которые должны обновится
+                // только в первом задании
+                $products = Shop::Get()->getShopService()->getProductsBySupplierID(
+                    $supplier->getId()
+                );
+                while ($product = $products->getNext()) {
+                    $product->setSync(1);
+                    $product->update();
+                }
+            }
+
+            $date = date('Y-m-d H:i:s');
+            $from = $step * 1000 - 1000;
+            $to = $step * 1000;
+
+            $columnName = $this->columnNumberToArray($columnName);
+            $columnCode = $this->columnNumberToArray($columnCode);
+            if ($columnArticul) {
+                $columnArticul = $this->columnNumberToArray($columnArticul);
+            }
+            if ($columnAvail) {
+                $columnAvail = $this->columnNumberToArray($columnAvail);
+            }
+            if ($columnComment) {
+                 $columnComment = $this->columnNumberToArray($columnComment);
+            }
+
+            if ($type == 'xls') {
+                PackageLoader::Get()->import('XLS');
+
+                $data = new XLS_Reader();
+                $data->setOutputEncoding('UTF-8');
+                $file = PackageLoader::Get()->getProjectPath() . 'media/import/' . $file;
+                $data->read($file);
+                for ($i = $from; $i <= $to; $i++) {
+
+                    if ($columnAvail) {
+                        if (is_array($columnAvail)) {
+                            $availText = $this->gluePriceValue($data, $columnAvail, 'xls', $i);
+                        } else {
+                            $availText = @trim($data->sheets[0]['cells'][$i][$columnAvail]);
+                        }
+                    } else {
+                        $availText = 'В наличии';
+                    }
+
+                    if ($columnArticul) {
+                        if (is_array($columnArticul)) {
+                            $articul = $this->gluePriceValue($data, $columnArticul, 'xls', $i);
+                        } else {
+                            $articul = @trim($data->sheets[0]['cells'][$i][$columnArticul]);
+                        }
+                    } else {
+                        $articul = '';
+                    }
+
+                    if ($columnComment) {
+                        if (is_array($columnComment)) {
+                            $comment = $this->gluePriceValue($data, $columnComment, 'xls', $i);
+                        } else {
+                            $comment = @trim($data->sheets[0]['cells'][$i][$columnComment]);
+                        }
+                    } else {
+                        $comment = '';
+                    }
+
+                    $price = @trim($data->sheets[0]['cells'][$i][$columnPrice]);
+                    $price = str_replace(',', '.', $price);
+                    $price = str_replace(' ', '', $price);
+
+                    if ($notimportemptyprice) {
+                        if (!(float) $price) {
+                            continue;
+                        }
+                    }
+
+                    if ($columnMinRetail) {
+                        $minRetail = @trim($data->sheets[0]['cells'][$i][$columnMinRetail]);
+                        $minRetail = str_replace(',', '.', $minRetail);
+                        $minRetail = str_replace(' ', '', $minRetail);
+                    } else {
+                        $minRetail = 0;
+                    }
+
+                    if ($columnRecommRetail) {
+                        $recommRetail = @trim($data->sheets[0]['cells'][$i][$columnRecommRetail]);
+                        $recommRetail = str_replace(',', '.', $recommRetail);
+                        $recommRetail = str_replace(' ', '', $recommRetail);
+                    } else {
+                        $recommRetail = 0;
+                    }
+
+                    // код поставщика
+                    if (is_array($columnCode)) {
+                        $code = $this->gluePriceValue($data, $columnCode, 'xls', $i);
+                    } else {
+                        $code = @trim($data->sheets[0]['cells'][$i][$columnCode]);
+                    }
+
+                    // название товара
+                    if (is_array($columnName)) {
+                        $name = $this->gluePriceValue($data, $columnName, 'xls', $i);
+                    } else {
+                        $name = @trim($data->sheets[0]['cells'][$i][$columnName]);
+                    }
+
+                    $discount = @trim($data->sheets[0]['cells'][$i][$columnDiscount]);
+                    // значения закончились
+                    if (!$price && !$code) {
+                        continue;
+                    }
+
+                    try {
+                        $this->_updateProductWithPriceSupplier(
+                            $supplier,
+                            $code,
+                            $name,
+                            $articul,
+                            $optionarray,
+                            $price,
+                            $currency,
+                            $availText,
+                            $date,
+                            $discount,
+                            $minRetail,
+                            $recommRetail,
+                            $currencyMinretail,
+                            $currencyRecommRetail,
+                            $dateUpload
+                        );
+                    } catch (Exception $priceEx) {
+                        $product = new ShopProduct();
+                        $product->setName($name);
+                        // записать ошибку в отчет загрузки
+                        $this->_updatePriceSupplierImportReport($product, $dateUpload, false, 1);
+                    }
+
+                }
+            } elseif ($type == 'csv-default' || $type == 'csv-comma' || $type == 'csv-tab') {
+                $delimeter = ';';
+                if ($type == 'csv-comma') {
+                    $delimeter = ',';
+                }
+                if ($type == 'csv-tab') {
+                    $delimeter = "\t";
+                }
+
+                if ($fileEncoding == 'windows-1251') {
+                    setlocale(LC_ALL, 'ru_RU.CP1251');
+                }
+                $file = PackageLoader::Get()->getProjectPath() . 'media/import/' . $file;
+                $f = fopen($file, 'r');
+
+
+                $lineIndex = 0;
+                while ($line = fgetcsv($f, 4096, $delimeter)) {
+                    $lineIndex ++;
+
+                    if ($from && $from > $lineIndex) {
+                        continue;
+                    }
+                    if ($to && $to < $lineIndex) {
+                        break;
+                    }
+
+                    if ($columnAvail) {
+                        if (is_array($columnAvail)) {
+                            $availText = $this->gluePriceValue($line, $columnAvail, 'csv');
+                        } else {
+                            $availText = @trim($line[$columnAvail - 1]);
+                        }
+                    } else {
+                        $availText = 'В наличии';
+                    }
+
+                    $price = @trim($line[$columnPrice - 1]);
+                    $price = str_replace(',', '.', $price);
+
+                    if ($notimportemptyprice) {
+                        if (!(float) $price) {
+                            continue;
+                        }
+                    }
+
+                    // код поставщика
+                    if (is_array($columnCode)) {
+                        $code = $this->gluePriceValue($line, $columnCode, 'csv');
+                    } else {
+                        $code = @trim($line[$columnCode - 1]);
+                    }
+
+                    $code = preg_replace("/^(.+?)\.0$/ius", '$1', $code);
+
+                    // артикул
+                    if ($columnArticul) {
+                        if (is_array($columnArticul)) {
+                            $articul = $this->gluePriceValue($line, $columnArticul, 'csv');
+                        } else {
+                            $articul = @trim($line[$columnArticul - 1]);
+                        }
+                    } else {
+                        $articul = '';
+                    }
+
+
+                    if ($columnComment) {
+                        if (is_array($columnComment)) {
+                            $comment = $this->gluePriceValue($line, $columnComment, 'csv');
+                        } else {
+                            $comment = @trim($line[$columnComment - 1]);
+                        }
+                    } else {
+                        $comment = '';
+                    }
+
+                    // наименование
+                    if (is_array($columnName)) {
+                        $name = $this->gluePriceValue($line, $columnName, 'csv');
+                    } else {
+                        $name = @trim($line[$columnName - 1]);
+                    }
+
+                    $discount = @trim($line[$columnDiscount - 1]);
+                    $minRetail = @trim($line[$columnMinRetail - 1]);
+                    $minRetail = str_replace(',', '.', $minRetail);
+                    $recommRetail = @trim($line[$columnRecommRetail - 1]);
+                    $recommRetail = str_replace(',', '.', $recommRetail);
+
+                    // значения закончились
+                    if (!$price && !$code) {
+                        continue;
+                    }
+
+                    try {
+                        $this->_updateProductWithPriceSupplier(
+                            $supplier,
+                            $code,
+                            $name,
+                            $articul,
+                            $optionarray,
+                            $price,
+                            $currency,
+                            $availText,
+                            $date,
+                            $discount,
+                            $minRetail,
+                            $recommRetail,
+                            $currencyMinretail,
+                            $currencyRecommRetail,
+                            $dateUpload,
+                            $comment
+                        );
+                    } catch (Exception $priceEx) {
+                        $product = new ShopProduct();
+                        $product->setName($name);
+                        // записать ошибку в отчет загрузки
+                        $this->_updatePriceSupplierImportReport($product, $dateUpload, false, 1);
+                    }
+                }
+                fclose($f);
+
+                setlocale(LC_ALL, 'ru_RU.UTF-8');
+            } else {
+                throw new ServiceUtils_Exception('type');
+            }
+            // закрыть задачу
+
+            $x->setPdate(date("Y-m-d H:i:s"));
+            $x->update();
+            print "\n\ndone.\n\n";
+            // последняя часть прайса
+            if ($lastPart) {
+                $this->_updateSupplierProductAvail($supplier);
+                $this->_updateSupplierImportStatus($dateUpload, date("Y-m-d H:i:s"));
+                $this->_sendReportPriseSupplierImport($dateUpload);
+            }
+        } else {
+            print ("Нету задач по импорту прайса поставщика\n");
+        }
+    }
+
+    /**
+     * Пересчитать цены товаров
+     */
+    public function calculateAllProductPriceWithMargin() {
+        // категории
+        $category_all = Shop::Get()->getShopService()->getCategoryAll();
+        $category_all->addWhereQuery(
+            '(`id` IN (SELECT `shopmarginrulelink`.`objectid` FROM `shopmarginrulelink`
+            WHERE `shopmarginrulelink`.`objecttype` = \'ShopCategory\'))'
+        );
+
+        $category_withrule = array();
+        $category_obj = clone $category_all;
+        // проверить, есть ли правила для категорий
+        $category_rule = true;
+        if (!$category_obj->getNext()) {
+            $category_rule = false;
+        }
+        // Смотрим общие правила
+        $shopmarginruleLink = new ShopMarginRuleLink;
+        $shopmarginruleLink->setObjectid(0);
+        $shopmarginrule_all_avail = $shopmarginruleLink->getNext();
+        if (!$category_rule) {
+            if (!$shopmarginrule_all_avail) {
+                // нет правил пересчета цен
+                print 'нет правил для пересчета';
+
+            } else {
+                print 'Пересчет цен для всех категорий';
+                print "\n";
+                $this->_calculateProductPriceForCategory(0);
+            }
+
+        } else {
+            // переходим к правилам для категорий
+            print 'Пересчет цен для категорий';
+            print "\n";
+            $i = 0;
+            while ($x = $category_all->getNext()) {
+                // категории с правилами
+                $category_withrule[$i] = $x->getid();
+                $i++;
+                print $x->getName();
+                print "\n";
+                $this->_calculateProductPriceForCategory($x->getId());
+            }
+            // категории вернего уровня без правил, по общим правилам если они есть
+            if ($shopmarginrule_all_avail) {
+                $category_all = Shop::Get()->getShopService()->getCategoryAll();
+                $category_all->setParentid(0);
+                while ($x = $category_all->getNext()) {
+                    $category_id = $x->getId();
+                    if (in_array($category_id, $category_withrule)) {
+                        // пропускаем те что уже отработали
+                        continue;
+                    }
+                    print $x->getName();
+                    print "\n";
+                    $this->_calculateProductPriceForCategory($x->getId());
+                }
+            }
+        }
+        print "\n\ndone.\n\n";
+    }
+
+    /**
+     * Проверить задачи на пересчет
+     */
+    public function processProductPriceTask() {
+        $pdate = date('Y-m-d H:i:s');
+        $calculateIssue = new XShopProductPriceTask();
+        $calculateIssue->setPdate('0000-00-00 00:00:00');
+
+        if (!$calculateIssue->select()) {
+            return;
+        }
+
+        // есть задача
+        $categoryId = $calculateIssue->getCategoryid();
+        if ($categoryId) {
+            // для конкретной категории
+            $this->_calculateProductPriceForCategory($categoryId);
+        } elseif ($categoryId == 0) {
+            // для всех категорий
+            $this->calculateAllProductPriceWithMargin();
+        }
+        // закрываем задачу
+        $calculateIssue->setPdate($pdate);
+        $calculateIssue->update();
+    }
+
+    /**
+     * Массив цен поставщиков в валюте товара
+     *
+     * @param ShopProduct $product
+     *
+     * @return array
+     */
+    public function getSuppliersPrice(ShopProduct $product) {
+        $suppliers_price_array = array();
+
+        for ($j = 1; $j <= 10; $j++) {
+            try {
+                $s_avail = $product->getField('supplier' . $j . 'avail');
+
+                // пропускаем поставщика у которого товар не в наличии
+                if (!$s_avail) {
+                    continue;
+                }
+
+                $s_id = (int) $product->getField('supplier' . $j . 'id');
+                $s_price = (float) $product->getField('supplier' . $j . 'price'); // цена
+                $s_discount = (float) $product->getField('supplier' . $j . 'discount'); // скидка
+                $s_currencyid = (int) $product->getField('supplier' . $j . 'currencyid'); // валюта
+                $s_minretail = (float) $product->getField('supplier' . $j . 'minretail'); // мин розница
+                // валюта мин розницы
+                $s_minretail_cur_id = (int) $product->getField('supplier' . $j . 'minretail_cur_id');
+                // рекомендуемая розница
+                $s_recommretail = (float) $product->getField('supplier' . $j . 'recommretail');
+                // валюта рекомендуемой розницы
+                $s_recommretail_cur_id = (int) $product->getField('supplier' . $j . 'recommretail_cur_id');
+                // получаем цену в системной валюте
+                $s_currency = Shop::Get()->getCurrencyService()->getCurrencyByID($s_currencyid);
+                $price = Shop::Get()->getCurrencyService()->convertCurrency(
+                    $s_price,
+                    $s_currency,
+                    $product->getCurrency()
+                );
+                $minretail = 0;
+                if ($s_minretail) {
+                    // получаем мин розницу в системной валюте
+                    $s_minretail_cur = Shop::Get()->getCurrencyService()->getCurrencyByID($s_minretail_cur_id);
+                    $minretail = Shop::Get()->getCurrencyService()->convertCurrency(
+                        $s_minretail,
+                        $s_minretail_cur,
+                        $product->getCurrency()
+                    );
+                }
+                $recommretail = 0;
+                if ($s_recommretail) {
+                    // получаем рекомендуемую розницу в системной валюте
+                    $s_minretail_cur = Shop::Get()->getCurrencyService()->getCurrencyByID($s_recommretail_cur_id);
+                    $recommretail = Shop::Get()->getCurrencyService()->convertCurrency(
+                        $s_recommretail,
+                        $s_minretail_cur,
+                        $product->getCurrency()
+                    );
+                }
+
+                $price_discount = $price - $price * $s_discount / 100; //цена с учетом скидки
+                $price_discount = round($price_discount, 2);
+                $suppliers_price_array[$s_id] = array(
+                    'id' => $s_id,
+                    'price_discount' => $price_discount,
+                    's_discount' => $s_discount,
+                    'minretail' => $minretail,
+                    'recommretail' => $recommretail,
+                );
+            } catch (ServiceUtils_Exception $se) {
+
+            }
+        }
+        return $suppliers_price_array;
+    }
+
+    /**
+     * Перевести строк со значения полей - в массив
+     *
+     * @param string
+     *
+     * @return array|string
+     */
+    public function columnNumberToArray($column) {
+        $columnArr = explode(',', $column);
+        if (count($columnArr) > 1) {
+            $columnArr = array_map('trim', $columnArr);
+            return $columnArr;
+        } else {
+            return $column;
+        }
+    }
+
+    /**
+     * Склеить значения колонок поставщика
+     * @param mixed $data
+     * @param array $arrayFild
+     * @param  string $type
+     * @param int $iteration
+     * @return string
+     */
+    public function gluePriceValue($data, $arrayFild, $type = 'xls', $iteration = false) {
+        $glueValue = '';
+        foreach ($arrayFild as $value) {
+            if ($type == 'xls') {
+                $glueValue.= ' ' . @trim($data->sheets[0]['cells'][$iteration][$value]);
+            } elseif ($type == 'csv') {
+                $glueValue.= ' ' . @trim($data[$value - 1]);
+            }
+        }
+        $glueValue = trim($glueValue);
+        return $glueValue;
+    }
+
+    /**
+     * Определить приоритетный источник продукта
+     * И вернуть массив результатов пересчета
+     *
+     * @param mixed $resultSupplier массив или false
+     * @param mixed $resultStorageTemp массив или false
+     */
+    protected function _getPrioritySourceProduct($resultSupplier, $resultStorage) {
+        if ($resultStorage) {
+            $priceStorage = (float) $resultStorage['price'];
+        } else {
+            $priceStorage = 0;
+        }
+
+        if ($resultSupplier) {
+            $priceSupplier = (float) $resultSupplier['price'];
+        } else {
+            $priceSupplier = 0;
+        }
+
+        // Приоритетный источник товара
+        $prioritySourceProduct = Shop::Get()->getSettingsService()->getSettingValue('priority-source-product');
+
+        // приоритет поставщик
+        if ($prioritySourceProduct == 'supplier') {
+            if ($resultSupplier) {
+                return $resultSupplier;
+            } else {
+                return $resultStorage;
+            }
+        }
+
+        // приоритет склад
+        if ($prioritySourceProduct == 'storage') {
+            if ($resultStorage) {
+                return $resultStorage;
+            } else {
+                return $resultSupplier;
+            }
+        }
+
+        // Самая выгодная (низкая) цена
+        if ($priceStorage && $priceSupplier) {
+            if ($priceSupplier < $priceStorage) {
+                return $resultSupplier;
+            } elseif ($priceStorage) {
+                return $resultStorage;
+            }
+        } elseif ($priceStorage) {
+            return $resultStorage;
+        } elseif ($priceSupplier) {
+            return $resultSupplier;
+        }
+    }
+
+    /**
+     * Пересчет цены для категории товаров
+     *
+     * @param integer $categoryid
+     */
+    private function _calculateProductPriceForCategory($categoryid) {
+        try {
+            SQLObject::TransactionStart();
+            if ($categoryid == 0) {
+                $products = Shop::Get()->getShopService()->getProductsAll();
+            } else {
+                $category = Shop::Get()->getShopService()->getCategoryByID($categoryid);
+
+                $products = Shop::Get()->getShopService()->getProductsByCategory($category);
+            }
+
+            // сбросить supplierid
+            $productToUpdate = clone $products;
+            $productToUpdate->setSupplierid(0, true);
+            $productToUpdate->update(true);
+
+            //$products->setHidden(0);
+            $products->filterDeleted(0);
+            $products->filterUnsyncable(0);
+
+            while ($product = $products->getNext()) {
+                //print 'recalc product '.$product->getId()."\n";
+
+                /*try {
+                    if ($product->getCategory()->isHidden()) {
+                        throw new ServiceUtils_Exception();
+                    }
+                } catch (Exception $categoryEx) {
+
+                }*/
+
+                try {
+                    // цена поставщика
+                    $result = $this->calculatePrice($product);
+
+                    if (!$result['price']) {
+                        continue;
+                    }
+
+                    $pricebase = $result['pricebase'];
+                    $pricenew = $result['price'];
+                    $supplierID = $result['supplierid'];
+                    $priceold = round($product->getPrice(), 2);
+                    $rrc = $result['rrc'];
+                    if ($pricenew) {
+                        // запись в базу, результатов пересчета цен
+                        // старая цена, если она больше новой
+                        if ($priceold > $pricenew) {
+                            $product->setPriceold($priceold);
+                        }
+                        $product->setPricebase($pricebase);
+                        $product->setPrice($pricenew);
+                        $product->setSupplierid($supplierID);
+                        $product->setRrc($rrc);
+                        $product->update();
+                    }
+                } catch (ServiceUtils_Exception $pe) {
+                    print $pe;
+                }
+            }
+
+            SQLObject::TransactionCommit();
+        } catch (ServiceUtils_Exception $se) {
+            print $se;
+            SQLObject::TransactionRollback();
+        }
+    }
+
+    /**
+     * Посчитать цену товара по схеме:
+     * определить минимальная цену от поставщика + все наценки
+     *
+     * @param ShopProduct $product
+     *
+     * @return array
+     */
+    public function calculatePriceBySupplier(ShopProduct $product) {
+        $suppliers_price_array = Shop::Get()->getSupplierService()->getSuppliersPrice($product);
+        $supplier_price_resalt = array();
+        $min = 0;
+        foreach ($suppliers_price_array as $supplier_data) {
+            $discount = 0;
+            $incoming_supplier_id = 0;
+            $incoming_supplier_id = $supplier_data['id'];
+            $price = $supplier_data['price_discount'];
+
+            $minretail = $supplier_data['minretail'];
+            $recommretail = $supplier_data['recommretail'];
+            $discount = $supplier_data['s_discount'];
+            $pricenew = $price;
+            // тут прогнать все цены поставщиков
+
+            $links = new ShopMarginRuleLink();
+            $category = null;
+
+            // смтрим по категориям товара наличие наценок, начинаем с верхней по иерархии
+            // берем самую нижнюю по иерархие категорию с наценками
+            $priority = 0;
+            for ($i = 1; $i < 10; $i++) {
+                $id = $product->getField('category' . $i . 'id');
+                if ($id != 0 && $rules = $links->categoryHasMarginrule($id)) {
+                    // категория имеет много правил нужно проверить все
+                    while ($rule = $rules->getNext()) {
+                        $marginrule = Shop::Get()->getShopService()->getMarginRuleByID($rule->getMarginruleid());
+                        $marginruleid = $marginrule->getId();
+                        $supplierid = $marginrule->getSupplierid();
+                        $brandid = $marginrule->getBrandid();
+
+                        if ($brandid && $product->getBrandid() != $brandid) {
+                            continue;
+                        }
+
+                        if ($supplierid && $incoming_supplier_id != $supplierid) {
+                            continue;
+                        }
+
+                        if ($marginrule->getPriority() >= $priority) {
+                            // берем самое приоритетное правило из всех категорий
+                            $category = Shop::Get()->getShopService()->getCategoryByID($id);
+                            $priority = $marginrule->getPriority();
+                        }
+                    }
+                }
+            }
+            if ($category) {
+                $links->addWhereArray(array('AllCategories', $category->getClassname()), 'objecttype');
+                $links->addWhereArray(array('AllCategories', $category->getId()), 'objectid');
+            } else {
+                $links->setObjecttype('AllCategories');
+                $links->setObjectid(0);
+            }
+
+
+            $ruleArray = array();
+
+            $rulesArray = array(); // массив для сортировки правил по приоритетам
+            while ($link = $links->getNext()) {
+                try {
+                    $rule = Shop::Get()->getShopService()->getMarginRuleByID($link->getMarginruleid());
+
+                    $supplierid = $rule->getSupplierid();
+                    $brandid = $rule->getBrandid();
+                    $pricefrom = Shop::Get()->getCurrencyService()->convertCurrency(
+                        $rule->getPricefrom(),
+                        $rule->getCurrency(),
+                        $product->getCurrency()
+                    );
+
+                    $priceto = Shop::Get()->getCurrencyService()->convertCurrency(
+                        $rule->getPriceto(),
+                        $rule->getCurrency(),
+                        $product->getCurrency()
+                    );
+
+                    if ($brandid && $product->getBrandid() != $brandid) {
+                        continue;
+                    }
+
+                    if ($supplierid && $incoming_supplier_id != $supplierid) {
+                        continue;
+                    }
+
+                    if (($pricefrom && $price < $pricefrom) ||
+                    ($priceto && $price > $priceto)) {
+                        continue;
+                    }
+
+
+                    $rulesArray[$rule->getPriority()] = $rule;
+                } catch (ServiceUtils_Exception $le) {
+
+                }
+            }
+
+            ksort($rulesArray);
+            @$rule = end($rulesArray); // берем самое приоритетное правило для данного товара.
+            if (is_object($rule)) {
+                try {
+                    $retail = '';
+                    $rrc = 0;
+                    $pricenew += $rule->getMarginValue($price, $product->getCurrency());
+                    if ($discount) {
+                        $retail = "<strong> Учтена скидка поставщика {$discount}%</strong>";
+                    }
+                    if ($pricenew < $minretail) {
+                        $pricenew = $minretail;
+                        $rrc = 1;
+                        $retail = '<strong> Минимальная розница</strong>';
+                    }
+                    if ($recommretail) {
+                        $pricenew = $recommretail;
+                        $rrc = 1;
+                        $retail = '<strong> РРЦ</strong>';
+                    }
+                    if ((!$min || $pricenew < $min) && $pricenew > 0) {
+                        $current_supplier_id = $incoming_supplier_id;
+                        $ruleArray = array();
+                        $min = $pricenew;
+                        $ruleName = $rule->makeName() . $retail;
+                        $currentprice = $price;
+                    }
+                } catch (Exception $e) {
+
+                }
+            }
+        }
+
+
+        if ($min) {
+            $resultArray = array();
+            $resultArray['price'] = $min;
+            $resultArray['ruleName'] = $ruleName;
+            $resultArray['pricebase'] = $currentprice;
+            $resultArray['supplierid'] = $current_supplier_id;
+            $resultArray['rrc'] = $rrc;
+
+            return $resultArray;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Получить все товары поставщика
+     *
+     * @param ShopSupplier $supplier
+     *
+     * @return ShopProduct
+     */
+    public function getProductsBySupplier(ShopSupplier $supplier) {
+        $x = Shop::Get()->getShopService()->getProductsAll();
+        $queryArray = array();
+        for ($j = 1; $j <= 10; $j++) {
+            $queryArray[] = '`supplier' . $j . 'id` = '.$supplier->getId().'';
+        }
+        $x->addWhereQuery('(' . implode(' OR ', $queryArray) . ')');
+        return $x;
+    }
+
+    /**
+     * Находит товар по коду поставщика, наименованию, артикулу
+     *
+     * @param ShopSupplier $supplier
+     * @param string $code
+     * @param string $productName
+     * @param string $articul
+     * @param bool $issearchcode искать по коду поставщика
+     * @param bool $issearchcodethis  искать только по коду текущего поставщика
+     * @param bool $issearchcodemd5 превращать код в md5 trim lowercase
+     * @param bool $issearchname точность поиска по имени
+     * @param bool $issearcharticul искать по артикулу
+     *
+     * @return ShopProduct
+     */
+    public function getProductBySupplierCode(ShopSupplier $supplier, $code, $productName, $articul, $issearchcode,
+    $issearchcodethis, $issearchname, $issearcharticul) {
+        //$productName = iconv('utf-8', 'utf-8//IGNORE', $productName);
+        //$code = iconv('utf-8', 'utf-8//IGNORE', $code);
+        //var_dump($code);
+
+        $connection = ConnectionManager::Get()->getConnectionDatabase();
+        $codeEscaped = $connection->escapeString($code);
+        $productName = $connection->escapeString($productName);
+
+        // превращаем из процентов в чисто от 0 до 1
+        $issearchname = $issearchname / 100;
+
+        // поиск по коду текущего поставщика
+        if ($issearchcode || $issearchcodethis) {
+            $x = Shop::Get()->getShopService()->getProductsAll();
+            $queryArray = array();
+            for ($j = 1; $j <= 10; $j++) {
+                $q = '(`supplier' . $j . 'id` = ' . $supplier->getId();
+                $q .= ' AND `supplier' . $j . 'code` = \'' . $codeEscaped . '\')';
+                $queryArray[] = $q;
+            }
+            $x->addWhereQuery('(' . implode(' OR ', $queryArray) . ')');
+            $x->setLimitCount(1);
+
+            if ($x = $x->getNext()) {
+                $x->setMatchReason('По коду поставщика');
+                return $x;
+            }
+        }
+
+        // поиск по артикулу
+        if ($articul && $issearcharticul) {
+            $x = Shop::Get()->getShopService()->getProductsAll();
+            $x->setArticul($articul);
+            $x->setLimitCount(1);
+            if ($x = $x->getNext()) {
+                $x->setMatchReason('По артикулу '.$articul);
+                return $x;
+            }
+        }
+
+        // поиск по такому же коду у других поставщиков
+        if ($issearchcode && !$issearchcodethis) {
+            $x = Shop::Get()->getShopService()->getProductsAll();
+            $queryArray = array();
+            for ($j = 1; $j <= 10; $j++) {
+                $q = '(`supplier' . $j . 'id` <> ' . $supplier->getId();
+                $q .= ' AND `supplier' . $j . 'code` = \'' . $codeEscaped . '\')';
+                $queryArray[] = $q;
+            }
+            $x->addWhereQuery('(' . implode(' OR ', $queryArray) . ')');
+            $x->setLimitCount(1);
+
+            if ($x = $x->getNext()) {
+                $x->setMatchReason('По коду у другого поставщика');
+                return $x;
+            }
+        }
+
+        // поиск по имени с перестановками
+        if ($issearchname && $productName && preg_match_all("/([\d\pL]+)/ius", $productName, $r)) {
+            $a = array();
+
+            $totalLength = 0;
+            $wordArray = array();
+            $sphinx1Array = array();
+            $sphinx2Array = array();
+            foreach ($r[1] as $x) {
+                $totalLength += mb_strlen($x);
+
+                if (preg_match("/(\d+)(\pL+\d+)/ius", $x, $x2)) {
+                    $a[] = "name LIKE '%" . $connection->escapeString($x2[1]).
+                           "%".$connection->escapeString($x2[2])."%'";
+
+                    $wordArray[] = $x2[1];
+                    $wordArray[] = $x2[2];
+
+                    $sphinx1Array[] = '*'.$x2[1].'*';
+                    $sphinx1Array[] = '*'.$x2[2].'*';
+                    //$sphinx1Array[] = "(={$x2[0]}|(={$x2[1]} ={$x2[2]}))";
+                } elseif (preg_match("/^([a-zа-я]+)(\d+)$/ius", $x, $x2)) {
+                    $a[] = "name LIKE '%" . $connection->escapeString($x2[1]).
+                           "%".$connection->escapeString($x2[2])."%'";
+
+                    $wordArray[] = $x2[1];
+                    $wordArray[] = $x2[2];
+
+                    $sphinx1Array[] = '*'.$x2[1].'*';
+                    $sphinx1Array[] = '*'.$x2[2].'*';
+                } elseif (preg_match("/^(\d+)([a-zа-я]+)$/ius", $x, $x2)) {
+                    $a[] = "name LIKE '%" . $connection->escapeString($x2[1]).
+                           "%".$connection->escapeString($x2[2])."%'";
+
+                    $wordArray[] = $x2[1];
+                    $wordArray[] = $x2[2];
+
+                    $sphinx1Array[] = '*'.$x2[1].'*';
+                    $sphinx1Array[] = '*'.$x2[2].'*';
+                    //$sphinx1Array[] = "(={$x2[0]}|(={$x2[1]} ={$x2[2]}))";
+                } else {
+                    $a[] = "name LIKE '%" . $connection->escapeString($x) . "%'";
+
+                    $wordArray[] = $x;
+
+                    if (is_numeric($x)) {
+                        $sphinx1Array[] = '*'.$x.'*';
+                    } else {
+                        $sphinx2Array[] = '*'.$x.'*';
+                    }
+                }
+            }
+
+            // попытка поиска на основе sphinx (будет намного быстрее)
+            try {
+                $sphinxProductIndex = Engine::Get()->getConfigField('sphinx-product-index');
+                $sphinxConnection = ConnectionManager::Get()->getConnection('sphinx');
+            } catch (Exception $sphinxEx) {
+                $sphinxConnection = false;
+                $sphinxProductIndex = false;
+            }
+
+            if ($sphinxConnection) {
+                // поиск на основе SphinxQL
+
+                // строим запрос
+                $query = implode(' ', $sphinx1Array);
+                if ($sphinx2Array) {
+                    if ($query) {
+                        $query .= ' | ';
+                    }
+                    $query .= implode(' | ', $sphinx2Array);
+                }
+
+                $query = "SELECT *
+                FROM {$sphinxProductIndex}
+                WHERE MATCH ('@name {$query}')
+                LIMIT 10
+                ";
+
+                $q = $sphinxConnection->query($query);
+                while ($x = $sphinxConnection->fetch($q)) {
+                    try {
+                        $x = Shop::Get()->getShopService()->getProductByID($x['id']);
+
+                        $relevance = StringUtils_SimilarText::CalculateSimilarText($x->getName(), $productName);
+                        $accept = $relevance > $issearchname;
+
+                        // если есть числа - то числа должны быть по-любому
+                        if ($accept) {
+                            $xName = implode('', $this->_explodeString($x->getName()));
+                            foreach ($wordArray as $digit) {
+                                if (preg_match("/(\d+)/", $digit, $r)) {
+                                    if (!substr_count($xName, $r[1])) {
+                                        $accept = false;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        if ($accept) {
+                            $x->setMatchReason('Sphinx с вероятностью '.round($relevance * 100).'%');
+                            return $x;
+                        }
+                    } catch (Exception $productEx) {
+
+                    }
+                }
+            } else {
+                // поиск по неточному совпадению, до N% схожести
+                // без Sphinx
+                $x = Shop::Get()->getShopService()->getProductsAll();
+                $x->setLimitCount(1);
+                $x->addWhereQuery("(" . implode(' OR ', $a) . ")");
+                $caseArray = array();
+                foreach ($wordArray as $word) {
+                    $word = $connection->escapeString($word);
+                    $caseArray[] = "(CASE WHEN name LIKE '%{$word}%' THEN ".mb_strlen($word)." ELSE 0 END)";
+                }
+                $x->addFieldQuery("(".implode(' + ', $caseArray).") AS relevance");
+                $x->setOrder('`relevance`', 'DESC');
+                if ($x = $x->getNext()) {
+                    $relevance = $x->getField('relevance');
+
+                    $xName = implode('', $this->_explodeString($x->getName()));
+                    $foundLength = mb_strlen($xName);
+
+                    $accept = $relevance > $totalLength * ($issearchname * 0.8)
+                              && $relevance > $foundLength * $issearchname;
+
+                    // если есть числа - то числа должны быть по-любому
+                    foreach ($wordArray as $digit) {
+                        if (preg_match("/(\d+)/", $digit, $r)) {
+                            if (!substr_count($xName, $r[1])) {
+                                $accept = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    // @todo: пока не удалять
+                    // $x->setName($x->getName().' relevance='.$relevance.'/'.$totalLength.
+                    // '/'.$foundLength.'/'.$accept);
+
+                    /*if ($code == 'а60') {
+                    print $x->getName().' relevance='.$relevance.'/'.$totalLength.'/'.$foundLength.'/'.$accept;
+                    print_r($a);
+                    print_r($wordArray);
+                    exit();
+                    }*/
+
+                    if ($accept) {
+                        $x->setMatchReason('По имени с вероятностью '.round($relevance / $totalLength * 100).'%');
+                        return $x;
+                    }
+                }
+            }
+        }
+
+        // поиск по вхождению в имя
+        /*if ($productName && $issearchname) {
+            $x = Shop::Get()->getShopService()->getProductsAll();
+            $x->addWhereQuery("name LIKE '%$productName%'");
+            $x->setLimitCount(1);
+            if ($x = $x->getNext()) {
+                return $x;
+            } else {
+                $x = Shop::Get()->getShopService()->getProductsAll();
+                $x->addWhereQuery("'$productName' LIKE CONCAT('%',name,'%')");
+                $x->setLimitCount(1);
+                if ($x = $x->getNext()) {
+                    return $x;
+                }
+            }
+        }*/
+
+        throw new ServiceUtils_Exception();
+    }
+
+    /**
+     * Посчитать цену товара и вернуть результат в виде массива.
+     * Цена только считается, но не сохраняется в БД.
+     *
+     * @param ShopProduct $product
+     *
+     * @return array
+     */
+    public function calculatePrice(ShopProduct $product) {
+        // цена поставщика
+        $resultSupplier = $this->calculatePriceBySupplier($product);
+
+        // цена склада
+        if (Shop_ModuleLoader::Get()->isImported('storage')) {
+            $resultStorage = $this->calculatePriceByStorage($product);
+        } else {
+            $resultStorage = false;
+        }
+
+        if (!$resultSupplier && !$resultStorage) {
+            return false;
+        }
+
+        // Определить цену согласно настройкам
+        $result = $this->_getPrioritySourceProduct($resultSupplier, $resultStorage);
+
+        if ($result) {
+            $result['price'] = round($result['price'], 2);
+            $result['pricebase'] = round($result['pricebase'], 2);
+        }
+
+        return $result;
+    }
+
+    /**
+     * Посчитать цену продажи и себестоимость по данным склада.
+     * Метод возвращает массив array(Цена, базовая цена, название склада, название наценки)
+     *
+     * @param ShopProduct $product
+     *
+     * @return array | false
+     */
+    public function calculatePriceByStorage(ShopProduct $product) {
+        $balance = StorageBalanceService::Get()->getBalanceByProductAndStoragesForSale(
+            false, // cuser
+            $product
+        );
+
+        $s = $balance->getNext();
+
+        // Нет наличия на складе
+        if (!$s || !(int) $s->getAmount()) {
+            return false;
+        }
+
+        $priceBase = 0;
+        $priceNew = 0;
+        $rcc = 0;
+        $ruleName = '';
+
+        // системная валюта
+        $currencySystem = Shop::Get()->getCurrencyService()->getCurrencySystem();
+
+        // rcc from storage
+        try{
+            $storageName = StorageNameService::Get()->getStorageNameByID($s->getStoragenameid());
+            $rcc = StorageBalanceService::Get()->getProductStrorageRRC(
+                $product,
+                $storageName,
+                $currencySystem
+            );
+        } catch (Exception $e) {
+
+        }
+
+        // Базовая цена продукта в базовой валюте системы
+        $priceBase = Shop::Get()->getCurrencyService()->convertCurrency(
+            $s->getPrice(),
+            Shop::Get()->getCurrencyService()->getCurrencyByID($s->getCurrencyid()),
+            $currencySystem
+        );
+
+        // название склада
+        $nameStorage = $s->getStorageName()->getName();
+
+        if ($rcc) {
+            $priceNew = $rcc;
+            $ruleName = ' РЦЦ склад';
+        } else {
+            // наиболее приоритетное правило
+            $rule = $this->_getMaxPriorityMarginRule($product, $priceBase);
+
+            if (!$rule) {
+                return false;
+            }
+
+            // цена с наценкой
+            $priceNew = $priceBase + $rule->getMarginValue($priceBase, $product->getCurrency());
+            $ruleName = $rule->makeName();
+        }
+
+        $resultArray = array();
+        $resultArray['price'] = $priceNew;
+        $resultArray['pricebase'] = $priceBase;
+        $resultArray['rrc'] = $rcc;
+        $resultArray['ruleName'] = "Склад: {$nameStorage}. Правило:".$ruleName;
+        $resultArray['supplierid'] = 0;
+
+        return $resultArray;
+    }
+
+    /**
+     * Получить для товара, самое приоритетное правило наценки
+     *
+     * @param ShopProduct $product
+     * @param float $price Цена нужна для проверки вхождения в правило
+     * @param integer $incommingSupplierId = 0  Для вхождение в правила с поставщиками
+     *
+     * @return ShopMarginRuleLink|false
+     */
+    private function _getMaxPriorityMarginRule(ShopProduct $product, $price, $incommingSupplierId = 0) {
+        $links = new ShopMarginRuleLink();
+        $category = null;
+
+        // смотрим по категориям товара наличие наценок, начинаем с верхней по иерархии
+        // берем самую нижнюю по иерархие категорию с наценками
+        $priority = 0;
+
+        for ($i = 1; $i < 10; $i++) {
+            $id = $product->getField('category' . $i . 'id');
+            if (!$id) {
+                continue;
+            }
+
+            $rule = $links->categoryHasMarginrule($id);
+            if (!$rule) {
+                continue;
+            }
+
+            $marginrule = Shop::Get()->getShopService()->getMarginRuleByID($rule->getMarginruleid());
+            $supplierid = $marginrule->getSupplierid();
+            $brandid = $marginrule->getBrandid();
+
+            if ($brandid && $product->getBrandid() != $brandid) {
+                continue;
+            }
+
+            if ($supplierid && $incommingSupplierId != $supplierid) {
+                continue;
+            }
+
+            // берем самое приоритетное правило из всех категорий
+            if ($marginrule->getPriority() >= $priority) {
+                $category = Shop::Get()->getShopService()->getCategoryByID($id);
+                $priority = $marginrule->getPriority();
+            }
+        }
+
+        if ($category) {
+            $links->addWhereArray(array('AllCategories', $category->getClassname()), 'objecttype');
+            $links->addWhereArray(array('AllCategories', $category->getId()), 'objectid');
+        } else {
+            $links->setObjecttype('AllCategories');
+            $links->setObjectid(0);
+        }
+
+        $ruleArray = array();
+
+        $rulesArray = array();
+        while ($link = $links->getNext()) {
+            try {
+                $rule = Shop::Get()->getShopService()->getMarginRuleByID($link->getMarginruleid());
+
+                // системная валюта
+                $currencySystem = Shop::Get()->getCurrencyService()->getCurrencySystem();
+
+                $supplierid = $rule->getSupplierid();
+                $brandid = $rule->getBrandid();
+
+                $pricefrom = Shop::Get()->getCurrencyService()->convertCurrency(
+                    $rule->getPricefrom(),
+                    $rule->getCurrency(),
+                    $currencySystem
+                );
+
+                $priceto = Shop::Get()->getCurrencyService()->convertCurrency(
+                    $rule->getPriceto(),
+                    $rule->getCurrency(),
+                    $currencySystem
+                );
+
+                if ($brandid && $product->getBrandid() != $brandid) {
+                    continue;
+                }
+
+                if ($supplierid && $incommingSupplierId != $supplierid) {
+                    continue;
+                }
+
+                if (($pricefrom && $price < $pricefrom) ||
+                ($priceto && $price > $priceto)) {
+                    continue;
+                }
+
+                $rulesArray[$rule->getPriority()] = $rule;
+            } catch (ServiceUtils_Exception $le) {
+                print $e;
+            }
+        }
+
+        ksort($rulesArray);
+        // берем самое приоритетное правило для данного товара.
+        @$rule = end($rulesArray);
+
+        if (!is_object($rule)) {
+            return false;
+        }
+
+        return $rule;
+    }
+
+    /**
+     * Обновить информацию поставщика в конкретном товаре
+     *
+     * @param ShopProduct $product
+     * @param ShopSupplier $supplier
+     * @param string $code
+     * @param float $price
+     * @param ShopCurrency $currency
+     * @param bool $avail
+     * @param string $availText
+     * @param float $discount
+     */
+    public function updateProductSupplierInfo(ShopProduct $product, ShopSupplier $supplier, $code, $price,
+    ShopCurrency $currency, $avail, $availText, $discount) {
+        $supplierNum = $this->_getSupplierNumber($product, $supplier);
+
+        if (!$supplierNum) {
+            // данных нет - дописываемся в первую свободную ячейку
+            for ($j = 1; $j <= 10; $j++) {
+                $tmp = $product->getField('supplier'.$j.'id');
+                if (!$tmp) {
+                    $supplierNum = $j;
+                    break;
+                }
+            }
+        }
+
+        $date = date('Y-m-d H:i:s');
+        $price = StringUtils_FormatterPrice::format($price);
+
+        $product->setField('supplier' . $supplierNum . 'id', $supplier->getId());
+        $product->setField('supplier' . $supplierNum . 'code', $code);
+        $product->setField('supplier' . $supplierNum . 'price', $price);
+        $product->setField('supplier' . $supplierNum . 'currencyid', $currency->getId());
+        $product->setField('supplier' . $supplierNum . 'availtext', $availText);
+        $product->setField('supplier' . $supplierNum . 'avail', $avail);
+        $product->setField('supplier' . $supplierNum . 'date', $date);
+        $product->setField('supplier' . $supplierNum . 'discount', $discount);
+        $product->update();
+    }
+
+    /**
+     * Выполнить пересчет наличия.
+     * Сначала считается наличие по поставщику, затем наличие по складу,
+     * затем итоговое.
+     *
+     * Метод выбрасывает события beforeProductAvailProcess
+     * и afterProductAvailProcess, на которые можно прицепить свои обработчики.
+     */
+    public function processProductAvails() {
+        $event = Events::Get()->generateEvent('beforeProductAvailProcess');
+        $event->notify();
+
+        // Наличие у поставщиков
+        $products = Shop::Get()->getShopService()->getProductsAll();
+        $products->filterUnsyncable(0);
+        $products->filterDeleted(0);
+        $products->filterHidden(0);
+
+        // ставим всем товарам "наличие у поставщика = 0"
+        $products->setSuppliered(0, true);
+        $products->update(true);
+
+        // ставим товарам "наличие у поставщика = 1"
+        $products = Shop::Get()->getShopService()->getProductsAll();
+        $products->filterHidden(0);
+        $products->filterDeleted(0);
+        $products->filterUnsyncable(0);
+        $products->addWhereQuery(
+            '(supplier1avail>0 OR supplier2avail>0 OR supplier3avail>0 OR supplier4avail>0 OR supplier5avail>0 OR
+              supplier6avail>0 OR supplier7avail>0 OR supplier8avail>0 OR supplier9avail>0 OR supplier10avail>0)'
+        );
+        $products->setSuppliered(1, true);
+        $products->update(true);
+
+        // @todo: разнести по модулям
+        // склады на первом месте
+        if (Shop_ModuleLoader::Get()->isImported('storage')) {
+            $idArray = StorageBalanceService::Get()->updateProductsAvailable();
+            $idArray[] = -1;
+        } else {
+            $idArray = array(-1);
+        }
+
+        // наличие от поставщиков на втором месте.
+        // наличие продукта соответствует наличию у любого из поставщиков
+        $connection = ConnectionManager::Get()->getConnectionDatabase();
+        $query = "
+        UPDATE
+            shopproduct
+        SET
+            availtext='',
+            avail = suppliered
+        WHERE
+            id NOT IN (".implode(',', $idArray).")
+            AND hidden=0
+            AND deleted=0
+            AND unsyncable=0
+        ";
+        $connection->query($query);
+
+        $event = Events::Get()->generateEvent('afterProductAvailProcess');
+        $event->notify();
+    }
+
+    /**
+     * Обновить товар из прайса поставщика
+     *
+     * @param $supplier
+     * @param $code
+     * @param $name
+     * @param $articul
+     * @param $optionarray
+     * @param $price
+     * @param $currency
+     * @param $availText
+     * @param $date
+     * @param $discount
+     * @param $minRetail
+     * @param $recommRetail
+     * @param $currencyMinRetail
+     * @param $currencyRecommRetail
+     *
+     * @return ShopProduct
+     */
+    private function _updateProductWithPriceSupplier($supplier, $code, $name, $articul, $optionarray,
+    $price, $currency, $availText, $date, $discount, $minRetail, $recommRetail, $currencyMinRetail,
+    $currencyRecommRetail, $dateUpdate, $comment) {
+        // настройки поиска
+        $issearchcode = false;
+        $issearchcodethis = false;
+        $issearchcodemd5 = false;
+        $issearcharticul = false;
+        $issearchname = false;
+        $createnewproduct = false;
+        $onlyRetail = false;
+        $removeMinretail = false;
+        $removeRecommretail = false;
+        if (in_array('isSearchCode', $optionarray, true)) {
+            $issearchcode = true;
+        }
+        if (in_array('isSearchCodeThis', $optionarray, true)) {
+            $issearchcodethis = true;
+        }
+        if (in_array('isSearchCodeMD5', $optionarray, true)) {
+            $issearchcodemd5 = true;
+        }
+        if (in_array('isSearchArticul', $optionarray, true)) {
+            $issearcharticul = true;
+        }
+        if (in_array('isSearchName', $optionarray, true)) {
+            $issearchname = true;
+        }
+        $nameSearchPrecision = $optionarray['nameSearchPrecision'];
+
+        // создавать ли новые товары
+        if (in_array('createNewProduct', $optionarray, true)) {
+            $createnewproduct = true;
+        }
+        // импорт только рцц и мин розницы
+        if (in_array('onlyRetail', $optionarray, true)) {
+            $onlyRetail = true;
+        }
+
+        if (in_array('removeMinretail', $optionarray, true)) {
+            $removeMinretail = true;
+        }
+        if (in_array('removeRecommretail', $optionarray, true)) {
+            $removeRecommretail = true;
+        }
+
+        if ($issearchcodemd5) {
+            $code = str_replace(' ', '', $code);
+            $code = trim($code);
+            $code = md5($code);
+        }
+
+        $isNew = false;
+        try {
+            $product = $this->getProductBySupplierCode(
+                $supplier,
+                $code,
+                $name,
+                $articul,
+                $issearchcode,
+                $issearchcodethis,
+                $nameSearchPrecision,
+                $issearcharticul
+            );
+        } catch (ServiceUtils_Exception $se) {
+            print $se;
+
+            // если сказано создавать новые товары
+            // или импортировать только рцц/мин розницу
+            // при импорте рцц/мин розницы, создание новых товаров не целесообразно
+            if (!$createnewproduct || !$name || $onlyRetail) {
+                // @todo: report
+                return false;
+            }
+            $product = Shop::Get()->getShopService()->addProduct($name);
+            $product->setHidden(0);
+            $isNew = true;
+        }
+
+        print 'Supplier up '.$product->getId()."\n";
+
+        $supplierNum = $this->_getSupplierNumber($product, $supplier);
+
+        if ($articul && !$product->getArticul()) {
+            $product->setArticul($articul);
+        }
+
+        $discount = abs($discount);
+        if ($discount < 1 && $discount > 0) {
+            $discount = $discount * 100;
+        }
+
+        // отмечаем что товар был в прайсе
+        $product->setSync(0);
+
+
+        if ($availText == '0.0' || $availText == '0') {
+            $availText = false;
+        }
+
+        if ($availText) {
+            $supplierAvail = 1;
+        } else {
+            $supplierAvail = 0;
+        }
+
+        if ($supplierNum) {
+            if (!$onlyRetail) {
+                $product->setField('supplier' . $supplierNum . 'code', $code);
+                $product->setField('supplier' . $supplierNum . 'price', $price);
+                $product->setField('supplier' . $supplierNum . 'currencyid', $currency->getId());
+                $product->setField('supplier' . $supplierNum . 'availtext', $availText);
+                $product->setField('supplier' . $supplierNum . 'comment', $comment);
+                $product->setField('supplier' . $supplierNum . 'avail', $supplierAvail);
+                $product->setField('supplier' . $supplierNum . 'date', $date);
+                $product->setField('supplier' . $supplierNum . 'discount', $discount);
+            }
+            if ($minRetail) {
+                $product->setField('supplier' . $supplierNum . 'minretail', $minRetail);
+                $product->setField('supplier' . $supplierNum . 'minretail_cur_id', $currencyMinRetail->getId());
+            }
+            if ($recommRetail) {
+                $product->setField('supplier' . $supplierNum . 'recommretail', $recommRetail);
+                $product->setField('supplier' . $supplierNum . 'recommretail_cur_id', $currencyRecommRetail->getId());
+            }
+            if ($removeMinretail) {
+                $product->setField('supplier' . $supplierNum . 'minretail', 0);
+                $product->setField('supplier' . $supplierNum . 'minretail_cur_id', 0);
+            }
+            if ($removeRecommretail) {
+                $product->setField('supplier' . $supplierNum . 'recommretail', 0);
+                $product->setField('supplier' . $supplierNum . 'recommretail_cur_id', 0);
+            }
+            $product->update();
+        } elseif (!$onlyRetail) {
+            for ($j = 1; $j <= 10; $j++) {
+                if (!$product->getField('supplier' . $j . 'id')) {
+                    $product->setField('supplier' . $j . 'id', $supplier->getId());
+                    $product->setField('supplier' . $j . 'code', $code);
+                    $product->setField('supplier' . $j . 'price', $price);
+                    $product->setField('supplier' . $j . 'currencyid', $currency->getId());
+                    $product->setField('supplier' . $j . 'availtext', $availText);
+                    $product->setField('supplier' . $j . 'comment', $comment);
+                    $product->setField('supplier' . $j . 'avail', $supplierAvail);
+                    $product->setField('supplier' . $j . 'date', $date);
+                    $product->setField('supplier' . $j . 'discount', $discount);
+                    if ($minRetail) {
+                        $product->setField('supplier' . $j . 'minretail', $minRetail);
+                        $product->setField('supplier' . $j . 'minretail_cur_id', $currencyMinRetail->getId());
+                    }
+                    if ($recommRetail) {
+                        $product->setField('supplier' . $j . 'recommretail', $recommRetail);
+                        $product->setField('supplier' . $j . 'recommretail_cur_id', $currencyRecommRetail->getId());
+                    }
+                    if ($removeMinretail) {
+                        $product->setField('supplier' . $j . 'minretail', 0);
+                        $product->setField('supplier' . $j . 'minretail_cur_id', 0);
+                    }
+                    if ($removeRecommretail) {
+                        $product->setField('supplier' . $j . 'recommretail', 0);
+                        $product->setField('supplier' . $j . 'recommretail_cur_id', 0);
+                    }
+                    $product->update();
+                    break;
+                }
+            }
+        }
+
+        // добавить запись о обновлении товара
+        $this->_updatePriceSupplierImportReport($product, $dateUpdate, $isNew);
+    }
+
+    /**
+     * Получить номер, под которым поставщик записан у товара
+     *
+     * @param ShopProduct $product
+     * @param ShopSupplier $supplier
+     *
+     * @return int
+     */
+    private function _getSupplierNumber(ShopProduct $product, ShopSupplier $supplier) {
+        for ($j = 1; $j <= 10; $j++) {
+            if ($product->getField('supplier' . $j . 'id') == $supplier->getId()) {
+                return $j;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Проставить наличие продуктам поставщика, которых не было в прайсе
+     *
+     * @param ShopSupplier $supplier
+     */
+    private function _updateSupplierProductAvail(ShopSupplier $supplier) {
+        try {
+            $products = Shop::Get()->getShopService()->getProductsBySupplierID(
+                $supplier->getId()
+            );
+            $products->setSync(1);
+            while ($product = $products->getNext()) {
+                $i = $this->_getSupplierNumber($product, $supplier);
+                if (!$i) {
+                    continue;
+                }
+
+                $product->setField('supplier' . $i . 'availtext', 'Нет в прайсе');
+                $product->setField('supplier' . $i . 'avail', 0);
+                $product->setField('supplier' . $i . 'date', date('Y-m-d H:i:s'));
+                $product->setSync(0);
+                $product->update();
+            }
+        } catch (Exception $e) {
+
+        }
+    }
+
+    /**
+     * Добавить запись, о обновлении продукта из прайса поставщика
+     *
+     * @param ShopProduct $product
+     * @param integer $dateUpdate
+     * @param bool $isNew
+     * @param bool $error
+     */
+    private function _updatePriceSupplierImportReport(ShopProduct $product, $dateUpdate, $isNew, $error = 0) {
+        $report = new XPriceSupplierImportReport();
+        $report->setProductname($product->getName());
+        $report->setProductid($product->getId());
+        $report->setDateupdate($dateUpdate);
+        $report->setIsnew($isNew);
+        $report->setError($error);
+        $report->insert();
+    }
+
+    /**
+     * Обработать данные загрузки прайса  и обновить отчет загрузки
+     *
+     * @param string $dateUpload
+     * @param string $dateProcessed
+     */
+    private function _updateSupplierImportStatus($dateUpload, $dateProcessed) {
+        $diffArrayUpdate = array();
+        $diffArrayInsert = array();
+        $diffArrayError = array();
+
+        $report = new XPriceSupplierImportReport();
+        $report->filterDateupdate($dateUpload);
+
+        // Обновлено
+        $reportUpdate = clone $report;
+        $reportUpdate->filterError(0);
+        $reportUpdate->filterIsnew(0);
+        $countUpdate = $reportUpdate->getCount();
+        while ($x = $reportUpdate->getNext()) {
+            $diffArrayUpdate[] = "Обновлен товар: #{$x->getProductid()} {$x->getProductname()}";
+        }
+
+        // Добавлено
+        $reportAdd = clone $report;
+        $reportAdd->filterError(0);
+        $reportAdd->filterIsnew(1);
+        $countAdd = $reportAdd->getCount();
+        while ($x = $reportAdd->getNext()) {
+            $diffArrayInsert[] = "Добавлен  товар: #{$x->getProductid()} {$x->getProductname()}";
+        }
+
+        // Ошибки
+        $reportError = clone $report;
+        $reportError->filterError(1);
+        $countError =  $reportError->getCount();
+        while ($x = $reportError->getNext()) {
+            $diffArrayError[] = "Ошибка добавления товара: #{$x->getgetProductid()} {$x->getProductname()}";
+        }
+
+         // Отчет
+        $resultText = '';
+        if ($diffArrayUpdate) {
+            $resultText .= " --- Обновлено:\n\n";
+            $resultText .= implode("\n", $diffArrayUpdate);
+        }
+
+        $resultText .= "\n============================================================\n";
+
+        if ($diffArrayInsert) {
+            $resultText .= " --- Добавлено:\n\n";
+            $resultText .= implode("\n", $diffArrayInsert);
+        }
+
+        $resultText .= "\n============================================================\n";
+
+        if ($diffArrayError) {
+            $resultText .= " --- Ошибки:\n\n";
+            $resultText .= implode("\n", $diffArrayError);
+        }
+
+        // дописать данные в статус
+        $importStatus = new XPriceSupplierImportStatus();
+        $importStatus->filterDateupload($dateUpload);
+        if ($importStatus->select()) {
+            $importStatus->setProcessed(1);
+            $importStatus->setDateprocessed($dateProcessed);
+            $importStatus->setResultsuccess($countUpdate);
+            $importStatus->setResultadded($countAdd);
+            $importStatus->setResultfail($countError);
+            $importStatus->setResulttext($resultText);
+            $importStatus->update();
+        }
+    }
+
+    /**
+     * Отчет на почту о обновлении товаров, при загрузке прайса поставщика
+     *
+     * @param integer $dateUdate
+     */
+    private function _sendReportPriseSupplierImport($dateUdate) {
+        // обновлено
+        $diffArrayUpdate = array();
+        $report = new XPriceSupplierImportReport();
+        $report->setIsnew(0);
+        $report->setDateupdate($dateUdate);
+        while ($x = $report->getNext()) {
+            $diffArrayUpdate[] = "Обновлен товар: #{$x->getProductid()} {$x->getProductname()}";
+            $x->delete();
+        }
+        // добавлено
+        $diffArrayInsert = array();
+        $report = new XPriceSupplierImportReport();
+        $report->setIsnew(1);
+        $report->setDateupdate($dateUdate);
+        while ($x = $report->getNext()) {
+            $diffArrayInsert[] = "Добавлен  товар: #{$x->getProductid()} {$x->getProductname()}";
+            $x->delete();
+        }
+
+        // Отправляем письмо с отчетом.
+        // От кого
+        $emailFrom = Shop::Get()->getSettingsService()->getSettingValue('reverse-email');
+
+        // Тело сообщения
+        $emailBody = '';
+        if ($diffArrayUpdate) {
+            $emailBody .= " --- Обновлено:\n\n";
+            $emailBody .= implode("\n", $diffArrayUpdate);
+        }
+
+        $emailBody .= "\n============================================================\n";
+
+        if ($diffArrayInsert) {
+            $emailBody .= " --- Добавлено:\n\n";
+            $emailBody .= implode("\n", $diffArrayInsert);
+        }
+
+
+        $emailTo = Shop::Get()->getSettingsService()->getSettingValue('email-tehnical');
+
+        // отправляем
+        $letter = new MailUtils_Letter($emailFrom, $emailTo, 'Supplier import products. ', $emailBody);
+        $letter->send();
+    }
+
+    /**
+     * Разбить строку на массив ключевых слов
+     *
+     * @param string $s
+     *
+     * @return array
+     */
+    private function _explodeString($s) {
+        if (preg_match_all("/([\d\pL]+)/ius", $s, $r)) {
+            $wordArray = array();
+            foreach ($r[1] as $x) {
+                if (preg_match("/(\d+)(\pL+\d+)/ius", $x, $x2)) {
+                    $wordArray[] = $x2[1];
+                    $wordArray[] = $x2[2];
+                } elseif (preg_match("/^([a-zа-я]+)(\d+)$/ius", $x, $x2)) {
+                    $wordArray[] = $x2[1];
+                    $wordArray[] = $x2[2];
+                } elseif (preg_match("/^(\d+)([a-zа-я]+)$/ius", $x, $x2)) {
+                    $wordArray[] = $x2[1];
+                    $wordArray[] = $x2[2];
+                } else {
+                    $wordArray[] = $x;
+                }
+            }
+
+            return $wordArray;
+        }
+
+        return array();
+    }
+
+    /**
+     * Выполнить конвертацию XLS/XLSX в CSV если это возможно.
+     * Используется наш специальный скрипт xls_to_csv.py
+     *
+     * @param string $fileXls Description
+     */
+    protected function _convertXLStoCSV($fileXls) {
+        $dir = PackageLoader::Get()->getProjectPath().'media/import/csv/';
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777);
+        }
+        $b = 1;
+        $fileXls = PackageLoader::Get()->getProjectPath().'media/import/'.$fileXls;
+        $pyScript = PackageLoader::Get()->getProjectPath().'packages/XLS/xls_to_csv.py';
+        $fileXls = escapeshellarg($fileXls);
+        $command = 'python '.$pyScript.' '. $fileXls.' '.$dir;
+        system($command, $b);
+        return $b;
+    }
+
+    /**
+     * Получить сервис.
+     * Сервис можно подменивать через метод ::Set()
+     *
+     * @return Shop_SupplierService
+     */
+    public static function Get() {
+        if (!self::$_Instance) {
+            $classname = self::$_Classname;
+            if ($classname) {
+                self::$_Instance = new $classname();
+            } else {
+                self::$_Instance = new self();
+            }
+        }
+        return self::$_Instance;
+    }
+
+    /**
+     * Задать класс сервиса.
+     * override-метод.
+     *
+     * @param string $classname
+     */
+    public static function Set($classname) {
+        self::$_Classname = $classname;
+        self::$_Instance = null;
+    }
+
+    /**
+     * Подменяемый объект сервиса
+     *
+     * @var Shop_SupplierService
+     */
+    private static $_Instance = null;
+
+    /**
+     * Подменяемое имя класса
+     *
+     * @var string
+     */
+    private static $_Classname = false;
+
+}

@@ -1,0 +1,42 @@
+#!/bin/bash
+
+COREDIR='.'
+MODULEDIR='modules'
+TEMPLATEDIR='templates'
+LOGFILE='svnup.log'
+
+
+cleaningFunc() {
+    echo "[$(date '+%d.%m.%Y %H:%M:%S')] Cleaning $1 ..." | tee -a ${LOGFILE}
+    svn cleanup $1 2&>1 >> svnup.log
+}
+
+updatingFunc() {
+    echo "[$(date '+%d.%m.%Y %H:%M:%S')] Updating $1 ..." | tee -a ${LOGFILE}
+    svn update --username=${USERNAME} --password=${SECRET} $1 >> ${LOGFILE} 2> >(tee -a ${LOGFILE})
+}
+
+
+read -p 'Enter Username: ' USERNAME
+read -sp 'Enter Password: ' SECRET
+
+echo -e "\n[$(date '+%d.%m.%Y %H:%M:%S')] Process started ..." | tee -a ${LOGFILE}
+
+cleaningFunc 'core' ${COREDIR}
+updatingFunc 'core' ${COREDIR}
+
+for MODULE in $(find ${MODULEDIR} -maxdepth 1 -type d | grep -ve template-basic -e quiz -e ^${MODULEDIR}$)
+do
+    cleaningFunc ${MODULE}
+    updatingFunc ${MODULE}
+done
+
+for TEMPLATE in $(find ${TEMPLATEDIR} -maxdepth 1 -type d | grep -ve default -e ^${TEMPLATEDIR}$)
+do
+    cleaningFunc ${TEMPLATE}
+    updatingFunc ${TEMPLATE}
+done
+
+echo "[$(date '+%d.%m.%Y %H:%M:%S')] Process finished. You can read log in ${LOGFILE}" | tee -a ${LOGFILE}
+
+exit 0

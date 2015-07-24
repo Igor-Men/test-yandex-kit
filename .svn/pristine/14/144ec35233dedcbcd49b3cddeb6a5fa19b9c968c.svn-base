@@ -1,0 +1,10 @@
+<?php
+class block_quiz extends Engine_Class {
+
+    public function process() {
+        // опросы
+        $quiz = Engine::GetContentDriver()->getContent('shop-quiz');
+        $this->setValue('quiz', $quiz->render());
+    }
+
+}

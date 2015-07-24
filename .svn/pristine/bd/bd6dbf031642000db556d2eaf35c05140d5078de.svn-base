@@ -1,0 +1,44 @@
+<?php
+
+if (PackageLoader::Get()->getMode('development')) {
+
+    // quiz - опрос
+    $table = SQLObject_Config::Get()->addClass('XQuiz', 'quiz');
+    $table->addField('id', 'int(11)', 'auto_increment');
+    $table->addIndexPrimary('id');
+    $table->addField('cdate', 'datetime'); // дата создания
+    $table->addField('sdate', 'datetime'); // дата старта
+    $table->addField('edate', 'datetime'); // дата завершения
+    $table->addField('active', 'tinyint(1)'); // активен ли
+    $table->addField('question', 'text'); // вопрос
+    $table->addField('type', "enum('radio', 'check')"); // тип опроса
+    // индексы
+    $table->addIndex(array('sdate', 'edate'), 'sdate');
+
+    // quiz answer
+    $table = SQLObject_Config::Get()->addClass('XQuizAnswer', 'quizanswer');
+    $table->addField('id', 'int(11)', 'auto_increment');
+    $table->addIndexPrimary('id');
+    $table->addField('quizid', 'int(11)'); // вопрос
+    $table->addField('answer', 'text'); // ответ
+    $table->addField('resultamount', 'int(11)'); // ответ
+    $table->addField('resultpercent', 'decimal(10,2)'); // ответ
+
+    // quiz user answer
+    $table = SQLObject_Config::Get()->addClass('XQuizUserAnswer', 'quizuseranswer');
+    $table->addField('id', 'int(11)', 'auto_increment');
+    $table->addIndexPrimary('id');
+    $table->addField('userid', 'int(11)'); // пользователь
+    $table->addField('userip', 'varchar(15)'); // IP пользователя
+    $table->addField('quizid', 'int(11)'); // вопрос
+    $table->addField('answerid', 'int(11)'); // ответ
+    $table->addField('cdate', 'datetime'); // дата
+
+    SQLObject_Config::Get()->process();
+}
+
+PackageLoader::Get()->registerPHPDirectory(dirname(__FILE__).'/db/');
+PackageLoader::Get()->registerPHPDirectory(dirname(__FILE__).'/services/');
+PackageLoader::Get()->registerPHPDirectory(dirname(__FILE__).'/system/');
+PackageLoader::Get()->registerPHPDirectory(dirname(__FILE__).'/forms/');
+//PackageLoader::Get()->registerPHPDirectory(dirname(__FILE__).'/acl/');

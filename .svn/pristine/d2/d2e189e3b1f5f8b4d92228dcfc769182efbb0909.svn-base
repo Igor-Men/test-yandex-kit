@@ -1,0 +1,30 @@
+<div class="shop-tabs fixed">
+    <a href="" class="selected">{|$translate_load_from_yml|} (beta)</a>
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+
+{|if $message == 'ok'|}
+    <div class="shop-message-success">
+        {|$translate_product_load_success|}!
+    </div>
+{|/if|}
+
+{|if $message == 'error'|}
+    <div class="shop-message-error">
+        {|$translate_product_load_error|}.
+    </div>
+{|/if|}
+
+{|if $message != 'ok'|}
+    <form action="" method="post" enctype="multipart/form-data">
+        <strong>{|$translate_xml_file_address|}</strong><br/>
+        <input type="text" name="ymlurl" value="{|$control_ymlurl|}"/><br/><br/>
+        {|$translate_time_to_export|}.<br/>
+
+        <div class="ob-button-fixed">
+            <input type="submit" name="ok" value="{|$translate_start_load|}" class="ob-button button-green" />
+        </div>
+        <div class="ob-button-fixed-place"></div>
+    </form>
+{|/if|}

@@ -1,0 +1,51 @@
+<?php
+/**
+ * WebProduction Shop (wpshop)
+ *
+ * @copyright (C) 2011-2014 WebProduction (tm) <webproduction.ua>
+ *
+ * This program is commercial software;
+ * you cannot redistribute it and/or modify it.
+ */
+
+$force = @$argv[1];
+
+$pidFile = __FILE__.'.pid';
+$pidDate = @file_get_contents($pidFile);
+if (!$force) {
+    if ($pidDate > date('Y-m-d H:i:s', time() - 3600)) {
+        print "\n\nProcess already running...\n\n";
+        exit();
+    }
+}
+
+file_put_contents($pidFile, date('Y-m-d H:i:s'), LOCK_EX);
+
+require(dirname(__FILE__).'/../packages/Engine/include.2.6.php');
+
+Engine::Get()->enableErrorReporting();
+
+if ($force == 'debug') {
+    PackageLoader::Get()->setMode('debug', true);
+}
+
+// генерируем событие
+try {
+    $event = Events::Get()->generateEvent('afterCronDay');
+
+    if ($force) {
+        // показываем что будем запускать
+        $a = $event->getObserversArray();
+        foreach ($a as $object) {
+            print 'Observer '.get_class($object)."\n";
+        }
+    }
+
+    $event->notify();
+} catch (Exception $e) {
+    print $e;
+}
+
+@unlink($pidFile);
+
+print "\n\ndone.\n\n";

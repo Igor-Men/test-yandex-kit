@@ -1,0 +1,36 @@
+<div class="shop-filter-displace" style="padding: 10px 10px 0 10px; margin: -10px -10px 10px -10px;">
+    {|if count($myEmployeeArray) > 1|}
+        <div class="ob-list-usersthumb js-list-usersthumb">
+            {|foreach from=$myEmployeeArray item="e"|}
+                <div class="ob-list-usersthumb-element employee {|if $e.selected|}selected{|/if|}" data-id="{|$e.id|}" onclick="document.location='{|$e.url|}'" title="Выполнено {|$e.todayDone|} из {|$e.todayAll|}">
+                    <div class="image">
+                        <img alt="{|$e.name|}" src="{|$e.image|}">
+                    </div>
+                    <span class="name">
+                        <a href="{|$e.url|}">{|$e.name|}</a>
+                    </span>
+                    {|if $e.roleArray|}
+                        <span>
+                            {|foreach from=$e.roleArray item="r"|}
+                                {|$r|}
+                            {|/foreach|}
+                        </span>
+                    {|/if |}
+                    {|assign var=issueProgress value=$e.todayDone/$e.todayAll*100|}
+                    <div class="ob-progressbar {|if $issueProgress == '0'|}red{|elseif $issueProgress < 50|}orange{|else|}green{|/if|}">
+                        <span style="width: {|if $issueProgress == '0'|}100{|else|}{|$issueProgress|}{|/if|}%;"></span>
+                    </div>
+                    {|if $e.noPriority > 0|}
+                        <span class="ob-icon-new">new</span>
+                    {|/if|}
+                </div>
+            {|/foreach|}
+            <div class="clear"></div>
+        </div>
+        <script>
+            animation('.js-list-usersthumb .ob-list-usersthumb-element', 'blind');
+        </script>
+    {|/if|}
+</div>
+
+{|$block_issue|}

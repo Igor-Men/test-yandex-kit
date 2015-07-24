@@ -1,0 +1,182 @@
+{|if $commentArray|}
+    <div class="ob-block-comments">
+        <div class="ob-slide-tabs js-slide-tabs js-comments-type">
+            <a class="selected" href="#"><span>Все</span></a>
+            <a href="#" data-type="comment"><span>Комментарии</span></a>
+            <a href="#" data-type="notify"><span>Уведомления</span></a>
+            <a href="#" data-type="email"><span>Письма</span></a>
+            <a href="#" data-type="sms"><span>SMS</span></a>
+            <a href="#" data-type="call"><span>Звонки</span></a>
+            <a href="#" data-type="change"><span>Изменения</span></a>
+            <span class="hover"></span>
+            <div class="clear"></div>
+        </div>
+
+        {|foreach from=$commentArray item="e"|}
+            {|if $e.type == 'comment'|}
+                {|* обычный комментарий *|}
+                <div class="comment-item {|if $e.my|}my-comment{|/if|} js-item-comment">
+                    <div class="identifier" style="background-color: {|$e.color|};"></div>
+                    {|*|}<span class="icon-type ob-icon-warning"></span>{|*|}
+                    <div class="chead">
+                        {|if $e.content != "Сообщение удалено"|}
+                            {|if $e.edit|}
+                                <a class="ob-link-delete ob-icon js-edit-message" href="#" data-id="{|$e.id|}" data-action="delete"></a>
+                                <a class="ob-link-edit ob-icon js-edit-message" href="#" data-id="{|$e.id|}" data-action="edit"></a>
+                            {|/if|}
+                            <a class="ob-link-quote ob-icon js-quote-message" href="#" data-id="{|$e.id|}" title="Цитировать"></a>
+                            <span style="display: none;" class="js-comment-content-original" data-id="{|$e.id|}">{|$e.contentOriginal|}</span>
+                        {|/if|}
+
+                        {|if $e.userURL|}
+                            <a href="{|$e.userURL|}" class="name js-contact-preview js-comment-author-{|$e.id|}" data-id="{|$e.userID|}">{|$e.userName|}</a>
+                        {|else|}
+                            {|$e.userName|}
+                        {|/if|}
+
+                        {|if $e.companyName|}
+                            <span class="tag">{|$e.companyName|}</span>
+                        {|/if|}
+                        {|$e.datetime|}
+                    </div>
+                    <div class="cbody" id="js-text-{|$e.id|}">
+                        {|$e.content|}
+                    </div>
+                </div>
+            {|elseif $e.type == 'notify'|}
+                {|* системное уведомление *|}
+                <div class="info-item notify js-item-notify">
+                    <span class="icon-type ob-icon-warning"></span>
+                    <div class="author">
+                        {|if $e.userURL|}
+                            <a href="{|$e.userURL|}" class="name js-contact-preview js-comment-author-{|$e.id|}" data-id="{|$e.userID|}">{|$e.userName|}</a>
+                        {|else|}
+                            {|$e.userName|}
+                        {|/if|}
+                        <br />
+                        {|$e.datetime|}
+                    </div>
+                    {|$e.content|}
+                    <div class="clear"></div>
+                </div>
+            {|elseif $e.type == 'change'|}
+                {|* изменение каких-либо данных *|}
+                <div class="info-item js-item-change">
+                    <span class="icon-type ob-icon-edit"></span>
+                    <div class="author">
+                        {|if $e.userURL|}
+                            <a href="{|$e.userURL|}" class="name js-contact-preview js-comment-author-{|$e.id|}" data-id="{|$e.userID|}">{|$e.userName|}</a>
+                        {|else|}
+                            {|$e.userName|}
+                        {|/if|}
+                        <br />
+                        {|$e.datetime|}
+                    </div>
+                    {|$e.content|}
+                    <div class="clear"></div>
+                </div>
+            {|elseif $e.type == 'email'|}
+                {|* email *|}
+                <div class="comment-item {|if $e.my|}my-comment{|/if|} js-item-email">
+                    <div class="identifier" style="background-color: {|$e.color|};"></div>
+                    <span class="icon-type ob-icon-email"></span>
+                    <div class="chead">
+                        {|if $e.content != "Сообщение удалено"|}
+                            <a class="ob-link-quote ob-icon js-quote-message" href="#" data-id="{|$e.id|}" title="Цитировать"></a>
+                            <span style="display: none;" class="js-comment-content-original" data-id="{|$e.id|}">{|$e.contentOriginal|}</span>
+                        {|/if|}
+
+                        {|if $e.userURL|}
+                            <a href="{|$e.userURL|}" class="name js-contact-preview js-comment-author-{|$e.id|}" data-id="{|$e.userID|}">{|$e.userName|}</a>
+                        {|else|}
+                            {|$e.userName|}
+                        {|/if|}
+
+                        {|if $e.companyName|}
+                            <span class="tag">{|$e.companyName|}</span>
+                        {|/if|}
+                        {|$e.datetime|}
+                    </div>
+                    <div class="cbody" id="js-text-{|$e.id|}">
+                        {|$e.content|}
+                    </div>
+                </div>
+            {|elseif $e.type == 'sms'|}
+                {|* sms *|}
+                <div class="comment-item {|if $e.my|}my-comment{|/if|} js-item-sms">
+                    <div class="identifier" style="background-color: {|$e.color|};"></div>
+                    <span class="icon-type ob-icon-sms"></span>
+                    <div class="chead">
+                        {|if $e.content != "Сообщение удалено"|}
+                            <a class="ob-link-quote ob-icon js-quote-message" href="#" data-id="{|$e.id|}" title="Цитировать"></a>
+                            <span style="display: none;" class="js-comment-content-original" data-id="{|$e.id|}">{|$e.contentOriginal|}</span>
+                        {|/if|}
+
+                        {|if $e.userURL|}
+                            <a href="{|$e.userURL|}" class="name js-contact-preview js-comment-author-{|$e.id|}" data-id="{|$e.userID|}">{|$e.userName|}</a>
+                        {|else|}
+                            {|$e.userName|}
+                        {|/if|}
+
+                        {|if $e.companyName|}
+                            <span class="tag">{|$e.companyName|}</span>
+                        {|/if|}
+                        {|$e.datetime|}
+                    </div>
+                    <div class="cbody" id="js-text-{|$e.id|}">
+                        {|$e.content|}
+                    </div>
+                </div>
+            {|elseif $e.type == 'call'|}
+                {|* call *|}
+                <div class="comment-item {|if $e.my|}my-comment{|/if|} js-item-call">
+                    <div class="identifier" style="background-color: {|$e.color|};"></div>
+                    <span class="icon-type ob-icon-sms"></span>
+                    <div class="chead">
+                        {|if $e.content != "Сообщение удалено"|}
+                            <a class="ob-link-quote ob-icon js-quote-message" href="#" data-id="{|$e.id|}" title="Цитировать"></a>
+                            <span style="display: none;" class="js-comment-content-original" data-id="{|$e.id|}">{|$e.contentOriginal|}</span>
+                        {|/if|}
+
+                        {|if $e.userURL|}
+                            <a href="{|$e.userURL|}" class="name js-contact-preview js-comment-author-{|$e.id|}" data-id="{|$e.userID|}">{|$e.userName|}</a>
+                        {|else|}
+                            {|$e.userName|}
+                        {|/if|}
+
+                        {|if $e.companyName|}
+                            <span class="tag">{|$e.companyName|}</span>
+                        {|/if|}
+                        {|$e.datetime|}
+                    </div>
+                    <div class="cbody" id="js-text-{|$e.id|}">
+                        {|$e.content|}
+                    </div>
+                </div>
+            {|else|}
+                <div class="info-item js-item-notify">
+                    <span class="important">Неизвестный формат записи #{|$e.id|}.</span><br />
+                    {|$e.content|}
+                </div>
+            {|/if|}
+        {|/foreach|}
+
+        <div class="shop-stepper">
+            {|if count($pagesArray) > 1|}
+            {|if $urlprev|}
+                <a href="{|$urlprev|}" class="prev">&larr; {|$translate_back|}</a>
+                {|if $hellip|} ... {|/if|}
+            {|/if|}
+
+            {|foreach from=$pagesArray item="e"|}
+                <a href="{|$e.url|}" {|if $e.selected|}class="selected"{|/if|}>{|$e.name|}</a>,
+            {|/foreach|}
+
+            {|if $urlnext|}
+                {|if $hellip|} ... {|/if|}
+                    <a href="{|$urlnext|}" class="next">{|$translate_next|} &rarr;</a>
+                {|/if|}
+            {|/if|}
+        </div>
+    </div>
+{|/if|}

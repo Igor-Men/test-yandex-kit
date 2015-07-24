@@ -1,0 +1,124 @@
+<?php
+class quiz_edit extends Engine_Class {
+
+    public function process() {
+        try {
+            $user = $this->getUser();
+
+            $quizID = $this->getArgumentSecure('id');
+            $quiz = QuizService::Get()->getQuizByID($quizID);
+            $this->setValue('quizid', $quiz->getId());
+            $this->setValue('urleditquiz', $quiz->makeURLEdit());
+            $this->setValue('urldeletequiz', $quiz->makeURLDelete());
+
+            if ($this->getControlValue('ok') || $this->getControlValue('answerok')) {
+
+                // сохранение опроса
+                try {
+                    $sdate = DateTime_Corrector::CorrectDateTime($this->getControlValue('sdate'));
+                    $edate = DateTime_Corrector::CorrectDateTime($this->getControlValue('edate'));
+
+                    QuizService::Get()->updateQuiz(
+                    $quiz,
+                    $this->getControlValue('type'),
+                    $this->getControlValue('question'),
+                    $this->getControlValue('active'),
+                    $sdate,
+                    $edate);
+
+                    $this->setValue('message', 'ok');
+                } catch (ServiceUtils_Exception $e) {
+                    $this->setValue('messageerror', 'error');
+                    $this->setValue('errorsArray', $e->getErrorsArray());
+                }
+
+                // сохранение вариантов ответа
+                try {
+                    SQLObject::TransactionStart();
+
+                    $answers = QuizService::Get()->getQuizAnswers($quiz);
+                    while ($answer = $answers->getNext()) {
+
+                        // попытка удалить
+                        try {
+                            $deleteID = $this->getArgument('delete'.$answer->getId());
+                            QuizService::Get()->deleteQuizAnswer($answer->getId());
+
+                            continue;
+                        } catch (Exception $ge) {
+
+                        }
+
+                        // попытка обновить
+                        try {
+                            $qanswer = $this->getControlValue('answer'.$answer->getId());
+                            $qanswer = trim($qanswer);
+                            if ($qanswer == '') {
+                                throw new ServiceUtils_Exception('answer');
+                            }
+                            $answer->setAnswer($qanswer);
+                            $answer->update();
+                        } catch (Exception $ge) {
+                            $this->setValue('messageerror', 'error');
+                            $this->setValue('errorsArray', $ge->getErrorsArray());
+                        }
+
+                    }
+                    $this->setValue('messageanswer', 'ok');
+
+                    SQLObject::TransactionCommit();
+                } catch (ServiceUtils_Exception $e) {
+                    SQLObject::TransactionRollback();
+                }
+            }
+
+            if ($this->getControlValue('answeraddok')) {
+
+                // добавление ответа
+                try {
+                    $qanswer = $this->getControlValue('answer');
+
+                    if ($qanswer) {
+                        QuizService::Get()->addQuizAnswer($quiz, $qanswer);
+
+                        $this->setValue('messageansweradd', 'ok');
+                    }
+                } catch (ServiceUtils_Exception $e) {
+                    $this->setValue('messageerror', 'error');
+                    $this->setValue('errorsArray', $e->getErrorsArray());
+                }
+            }
+
+
+            // данные об опросе
+            $this->setControlValue('question', $quiz->getQuestion());
+            $this->setControlValue('sdate', DateTime_Formatter::DateISO9075($quiz->getSdate()));
+            $this->setControlValue('edate', DateTime_Formatter::DateISO9075($quiz->getEdate()));
+            $this->setControlValue('active', $quiz->getActive());
+            $this->setControlValue('type', $quiz->getType());
+
+            // список ответов
+            $answerArray = array();
+            $answers = QuizService::Get()->getQuizAnswers($quiz);
+            while ($answer = $answers->getNext()) {
+                try {
+                    $answerArray[] = array(
+                    'id' => $answer->getId(),
+                    'answer' => $answer->getAnswer()
+                    );
+                } catch (ServiceUtils_Exception $eee) {
+
+                }
+            }
+            $this->setValue('answerArray', $answerArray);
+
+        } catch (ServiceUtils_Exception $ee) {
+            if (PackageLoader::Get()->getMode('debug')) {
+                print $ee;
+            }
+
+            Engine::GetQuery()->setContentNotFound();
+        }
+    }
+
+}

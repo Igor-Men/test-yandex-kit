@@ -1,0 +1,42 @@
+<div class="shop-tabs fixed">
+    <a href="/admin/shop/products/noticeavailability/">&lsaquo; {|$translate_notice_availability|}</a>
+    <a href="#" class="selected">{|$translate_edit_writing|}</a>
+    <div class="clear"></div>
+</div>
+<div class="shop-tabs-place"></div>
+
+<form action="" method="post" enctype="multipart/form-data">
+    <strong>{|$translate_name_small|}</strong><br />
+    <input type="text" name="name" value="{|$control_name|}" style="width: 80%; ">
+    <br />
+    <br />
+
+    <strong>Email</strong><br />
+    <input type="text" name="email" value="{|$control_email|}" style="width: 80%; ">
+    <br />
+    <br />
+
+    <strong>{|$translate_processed|}</strong><br />
+    <input type="checkbox" name="status" value="1" {|if $control_status == 1|}checked="checked"{|/if|}>
+    <br />
+    <br />
+
+    <strong>{|$translate_created|}</strong><br />
+    <input type="text" name="cdate" class="js-date" value="{|$control_cdate|}" style="width: 150px;">
+    <br />
+    <br />
+
+    <strong>{|$translate_dispatch_date|}</strong><br />
+        <input type="text" name="senddate" value="{|$control_senddate|}" style="width: 80%; " disabled="">
+    <br />
+    <br />
+
+    <strong>{|$translate_item_start_typing_the_name_of_the_product|}</strong><br />
+    <input type="text" name="productid" value="{|$control_productid|}" id="id-addproduct" style="width: 80%; "/>
+    <br />
+    <br />
+
+    <input class="ob-button" type="submit" name="formsUpdate" value="{|$translate_save_record|} #{|$control_id|}">
+
+    <input class="ob-button" type="submit" name="formsDelete" value="{|$translate_delete_entry|} #{|$control_id|}" onclick="return confirm('{|$translate_to_delete|}');">
+</form>

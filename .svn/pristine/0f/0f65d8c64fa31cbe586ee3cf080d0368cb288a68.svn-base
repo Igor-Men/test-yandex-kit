@@ -1,0 +1,7 @@
+<div class="shop-tabs">
+    <a href="/admin/shop/quiz/" class="selected">{|$translate_quizes|}</a>
+    <a href="./add/">{|$translate_fuiz_add|}</a>
+    <div class="clear">&nbsp;</div>
+</div>
+
+{|$table|}

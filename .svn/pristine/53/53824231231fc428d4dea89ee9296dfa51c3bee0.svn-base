@@ -1,0 +1,50 @@
+// drag & drop загрузка файлов
+function DropUploader(dropzoneSelector, clickableSelector) {
+    if (Dropzone.isBrowserSupported()) {
+
+        $j(clickableSelector).click(function(event) {
+            event.preventDefault();
+        });
+
+        if (!$j(clickableSelector).length) {
+            clickableSelector = false;
+        }
+
+        if (!$j(dropzoneSelector).length) {
+            return false;
+        }
+
+        var myDropzone = new Dropzone(dropzoneSelector, {
+            url: '/admin/shop/file/upload/ajax/',
+            method: 'post',
+            uploadMultiple: true,
+            clickable: clickableSelector,
+            createImageThumbnails: false,
+            previewsContainer: false
+        });
+
+        // пришел ответ от сервера
+        myDropzone.on("success", function(file, response) {
+            try {
+                // получаем ответ от сервера
+                response = JSON.parse(response);
+                if (response.result) {
+                    for (var i = 0; i < response.result.length; i++) {
+                        if (!$j('.js-uploaded-file-' + response.result[i].id).length) {
+
+                            var element = '<div class="js-uploaded-file js-uploaded-file-' + response.result[i].id + '">';
+                            element += '<input type="hidden" name="fileid[]" value="' + response.result[i].id + '" />';
+                            element += response.result[i].name;
+                            element += '</div>';
+                            $j(clickableSelector).after(element);
+                        }
+                    }
+                }
+
+            } catch (_error) {
+            }
+
+            return;
+        });
+    }
+}
